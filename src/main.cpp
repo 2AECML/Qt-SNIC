@@ -1,92 +1,158 @@
-#include "main.h"
+ï»¿#include "main.h"
 #include "snic.h"
 #include <iostream>
 #include <gdal_priv.h>
+#include <QMainWindow>
+#include <QApplication>
+#include <QPushButton>
+#include <QFileDialog>
+#include <QObject>
+#include <QGraphicsScene>
+#include "CustomGraphicsView.h"
 #include "SegmentationResult.cpp"
+#include "PolygonManager.cpp"
 
 extern "C" {
     void SNIC_main(double* pinp, int w, int h, int c, int numsuperpixels, double compactness, bool doRGBtoLAB, int* plabels, int* pnumlabels);
 }
 
 
-GDALDataset* getDataSet(const char* fileName) {
-	GDALAllRegister();
+class SNICApp : public QMainWindow {
+    Q_OBJECT
 
-	
-	GDALDataset* dataset = (GDALDataset*)GDALOpen(fileName, GA_ReadOnly);
-	if (dataset == NULL) {
-		std::cout << "ÎŞ·¨´ò¿ªÎÄ¼ş" << std::endl;
-		return nullptr;
-	}
-
-	// »ñÈ¡Í¼ÏñµÄ»ù±¾ĞÅÏ¢
-	int nRasterXSize = dataset->GetRasterXSize();
-	int nRasterYSize = dataset->GetRasterYSize();
-	int nBands = dataset->GetRasterCount();
-
-	std::cout << "Í¼Ïñ¿í¶È: " << nRasterXSize << std::endl;
-	std::cout << "Í¼Ïñ¸ß¶È: " << nRasterYSize << std::endl;
-	std::cout << "²¨¶ÎÊıÁ¿: " << nBands << std::endl;
-
-
-	return dataset;
-}
-
-SegmentationResult getSegmentationResult(GDALDataset* dataset) {
-    if (dataset == nullptr) {
-        std::cout << "ÎŞ·¨»ñÈ¡Êı¾İ¼¯" << std::endl;
-        return SegmentationResult();
+public:
+    SNICApp(QWidget* parent = nullptr) : QMainWindow(parent) {
+        initUI();
     }
 
-    int w = dataset->GetRasterXSize();
-    int h = dataset->GetRasterYSize();
-    int c = dataset->GetRasterCount();
-
-    // ¶ÁÈ¡Í¼ÏñÊı¾İ
-    double* pinp = new double[w * h * c];
-    for (int i = 0; i < c; ++i) {
-        GDALRasterBand* band = dataset->GetRasterBand(i + 1);
-        band->RasterIO(GF_Read, 0, 0, w, h, pinp + i * w * h, w, h, GDT_Float64, 0, 0);
+    ~SNICApp() {
+        GDALClose(mDataset);
+        delete mButton;
+        delete mGraphicsScene;
+        delete mGraphicsView;
     }
 
-    int numsuperpixels = 500; // ³¬ÏñËØÊıÁ¿
-    double compactness = 20.0; // ½ô´Õ¶È
-    bool doRGBtoLAB = true; // ÊÇ·ñ½øĞĞRGBµ½LABµÄ×ª»»
-    int* plabels = new int[w * h]; // ´æ´¢·Ö¸î½á¹ûµÄ±êÇ©
-    int* pnumlabels = new int[1]; // ´æ´¢±êÇ©ÊıÁ¿
+private slots:
+    void loadImage() {
 
-    std::cout << "¿ªÊ¼½øĞĞÍ¼Ïñ·Ö¸î..." << std::endl;
+        QString fileName = QFileDialog::getOpenFileName(this, "Open Image", "", "Images (*.png *.xpm *.jpg);;All Files (*)");
+        if (!fileName.isEmpty()) {
+            mImageFileName = fileName.toStdString();
+            executeSNIC();
+            exportResult();
+            PolygonManager polygonManager(mSegResult);
+        }
+    }
 
-    SNIC_main(pinp, w, h, c, numsuperpixels, compactness, doRGBtoLAB, plabels, pnumlabels);
+private:
+    void initUI() {
+        setWindowTitle(QString::fromUtf16(u"SNICåˆ†å‰²"));
+        setFixedSize(800, 600);
 
-    std::cout << "Í¼Ïñ·Ö¸îÍê³É" << std::endl;
+        mButton = new QPushButton("Load Image", this);
+        mButton->setGeometry(10, 10, 100, 30);
+        QObject::connect(mButton, &QPushButton::clicked, this, &SNICApp::loadImage);
 
-    SegmentationResult result(plabels, pnumlabels, w, h);
+        mGraphicsView = new CustomGraphicsView(this);
+        mGraphicsScene = new QGraphicsScene(this);
+        mGraphicsView->setScene(mGraphicsScene);
+        mGraphicsView->setGeometry(10, 50, 780, 540);
+    }
 
-    delete[] pinp;
-    delete[] plabels;
-    delete[] pnumlabels;
+    void executeSNIC() {
 
-    return result;
-}
+        const char* fileName = mImageFileName.c_str();
 
-int main() {
-    const char* fileName = "C:\\Users\\HC8052\\Pictures\\123.png";
-    char* recodedFilename = CPLRecode(fileName, "GBK", "UTF-8");
+        if (fileName != nullptr) {
+            getDataSet();
 
-    if (recodedFilename != nullptr) {
-        GDALDataset* dataset = getDataSet(recodedFilename);
+            if (mDataset != nullptr) {
+                segment();
+                std::cout << "åˆ†å‰²ç»“æœæ ‡ç­¾æ•°é‡: " << mSegResult.getLabelCount() << std::endl;
+                
+            }
+            
+        }
+    }
 
-        if (dataset != nullptr) {
-            SegmentationResult result = getSegmentationResult(dataset);
-            std::cout << "·Ö¸î½á¹û±êÇ©ÊıÁ¿: " << result.getLabelCount() << std::endl;
-            GDALClose(dataset);
-            result.exportToCSV();   // µ¼³ö½á¹ûµ½CSVÎÄ¼ş
+    void exportResult() {
+        mSegResult.exportToCSV();   // å¯¼å‡ºç»“æœåˆ°CSVæ–‡ä»¶
+    }
+
+    void getDataSet() {
+
+        const char* fileName = mImageFileName.c_str();
+
+        GDALAllRegister();
+
+        mDataset = (GDALDataset*)GDALOpen(fileName, GA_ReadOnly);
+        if (mDataset == NULL) {
+            std::cout << "æ— æ³•æ‰“å¼€æ–‡ä»¶" << std::endl;
+            return;
         }
 
-        CPLFree(recodedFilename); 
+        // è·å–å›¾åƒçš„åŸºæœ¬ä¿¡æ¯
+        int nRasterXSize = mDataset->GetRasterXSize();
+        int nRasterYSize = mDataset->GetRasterYSize();
+        int nBands = mDataset->GetRasterCount();
+
+        std::cout << "å›¾åƒå®½åº¦: " << nRasterXSize << std::endl;
+        std::cout << "å›¾åƒé«˜åº¦: " << nRasterYSize << std::endl;
+        std::cout << "æ³¢æ®µæ•°é‡: " << nBands << std::endl;
+
     }
 
-    return 0;
+    void segment() {
+        if (mDataset == nullptr) {
+            std::cout << "æ— æ³•è·å–æ•°æ®é›†" << std::endl;
+            return;
+        }
+
+        int w = mDataset->GetRasterXSize();
+        int h = mDataset->GetRasterYSize();
+        int c = mDataset->GetRasterCount();
+
+        // è¯»å–å›¾åƒæ•°æ®
+        double* pinp = new double[w * h * c];
+        for (int i = 0; i < c; ++i) {
+            GDALRasterBand* band = mDataset->GetRasterBand(i + 1);
+            band->RasterIO(GF_Read, 0, 0, w, h, pinp + i * w * h, w, h, GDT_Float64, 0, 0);
+        }
+
+        int numsuperpixels = 500; // è¶…åƒç´ æ•°é‡
+        double compactness = 20.0; // ç´§å‡‘åº¦
+        bool doRGBtoLAB = true; // æ˜¯å¦è¿›è¡ŒRGBåˆ°LABçš„è½¬æ¢
+        int* plabels = new int[w * h]; // å­˜å‚¨åˆ†å‰²ç»“æœçš„æ ‡ç­¾
+        int* pnumlabels = new int[1]; // å­˜å‚¨æ ‡ç­¾æ•°é‡
+
+        std::cout << "å¼€å§‹è¿›è¡Œå›¾åƒåˆ†å‰²..." << std::endl;
+
+        SNIC_main(pinp, w, h, c, numsuperpixels, compactness, doRGBtoLAB, plabels, pnumlabels);
+
+        std::cout << "å›¾åƒåˆ†å‰²å®Œæˆ" << std::endl;
+
+        mSegResult = SegmentationResult(plabels, pnumlabels, w, h);
+
+        delete[] pinp;
+        delete[] plabels;
+        delete[] pnumlabels;
+
+    }
+
+private:
+    QPushButton* mButton;
+    std::string mImageFileName;
+    CustomGraphicsView* mGraphicsView;
+    QGraphicsScene* mGraphicsScene;
+    GDALDataset* mDataset;
+    SegmentationResult mSegResult;
+};
+
+int main(int argc, char* argv[]) {
+    QApplication app(argc, argv);
+    SNICApp window;
+    window.show();
+    return app.exec();
 }
 
+#include "main.moc"

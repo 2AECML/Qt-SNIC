@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 #include <fstream>
 #include <iostream>
@@ -56,7 +58,7 @@ public:
         return mLabels[y][x];
     }
 
-    std::vector<std::vector<int>> getLabels() {
+    const std::vector<std::vector<int>>& getLabels() const {
         return mLabels;
     }
 

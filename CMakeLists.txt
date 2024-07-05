@@ -3,6 +3,11 @@
 #
 cmake_minimum_required (VERSION 3.8)
 
+# 启用 Qt 工具链的自动处理功能
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+
 # 如果支持，请为 MSVC 编译器启用热重载。
 if (POLICY CMP0141)
   cmake_policy(SET CMP0141 NEW)
@@ -25,9 +30,12 @@ include_directories(${INCLUDE_DIR})
 add_executable (use_gdal 
 	${INCLUDE_DIR}/main.h
 	${INCLUDE_DIR}/snic.h
+	${INCLUDE_DIR}/CustomGraphicsView.h
 	${SOURCE_DIR}/main.cpp
 	${SOURCE_DIR}/snic.c
-	${SOURCE_DIR}/SegmentationResult.cpp)
+	${SOURCE_DIR}/SegmentationResult.cpp
+	${SOURCE_DIR}/CustomGraphicsView.cpp
+	${SOURCE_DIR}/PolygonManager.cpp)
 
 # 寻找 Qt 库
 find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
