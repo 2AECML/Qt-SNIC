@@ -2,40 +2,119 @@
 #include "SegmentationResult.cpp"
 #include <gdal_priv.h>
 #include <ogrsf_frmts.h>
+#include <QPolygonF>
 
 class PolygonManager {
 public:
+    PolygonManager() : mDriver(nullptr), mDataset(nullptr), mLayer(nullptr) {}
     PolygonManager(const SegmentationResult& result) : mSegResult(result), mLayer(nullptr) {
-        createPolygons();
-    }
-    ~PolygonManager() {}
-
-private:
-    void createPolygons() {
         GDALAllRegister();
         OGRRegisterAll();
 
-        GDALDriver* driver = GetGDALDriverManager()->GetDriverByName("Memory");
-        
-        GDALDataset* dataset = driver->Create("", 0, 0, 0, GDT_Unknown, nullptr);
-        if (dataset == nullptr) {
+        mDriver = GetGDALDriverManager()->GetDriverByName("Memory");
+
+        mDataset = mDriver->Create("", 0, 0, 0, GDT_Unknown, nullptr);
+
+        createPolygons();
+    }
+    ~PolygonManager() {
+        if (mDataset != nullptr) {
+            GDALClose(mDataset);
+        }
+    }
+
+    std::vector<QPolygonF> getPolygonData() {
+
+        std::vector<QPolygonF> polygonData;
+
+        if (mLayer == nullptr) {
+            std::cerr << "图层未初始化！" << std::endl;
+            return polygonData;
+        }
+
+        std::cout << "mLayer 地址: " << mLayer << std::endl;
+        std::cout << "图层名称: " << mLayer->GetName() << std::endl;
+        std::cout << "图层要素数量: " << mLayer->GetFeatureCount(FALSE) << std::endl;
+
+
+        // 遍历图层中的所有要素
+        OGRFeature* feature;
+        mLayer->ResetReading();
+        while ((feature = mLayer->GetNextFeature()) != nullptr) {
+            // 获取几何属性
+            OGRGeometry* geometry = feature->GetGeometryRef();
+            if (geometry != nullptr && wkbFlatten(geometry->getGeometryType()) == wkbPolygon) {
+                OGRPolygon* polygon = dynamic_cast<OGRPolygon*>(geometry);
+                // 将 OGRPolygon 转换为 QPolygonF
+                QPolygonF qPolygon;
+                OGRLinearRing* ring = polygon->getExteriorRing();
+                for (int i = 0; i < ring->getNumPoints(); ++i) {
+                    OGRPoint point;
+                    ring->getPoint(i, &point);
+                    qPolygon << QPointF(point.getX(), point.getY());
+                }
+                polygonData.push_back(qPolygon);
+            }
+
+            // 释放要素对象
+            OGRFeature::DestroyFeature(feature);
+        }
+
+        return polygonData;
+    }
+
+    void printLayerContents() {
+
+        // 获取图层定义
+        OGRFeatureDefn* layerDefn = mLayer->GetLayerDefn();
+
+        // 遍历图层中的所有要素
+        OGRFeature* feature;
+        mLayer->ResetReading();
+        while ((feature = mLayer->GetNextFeature()) != nullptr) {
+            // 获取几何属性
+            OGRGeometry* geometry = feature->GetGeometryRef();
+            if (geometry != nullptr && wkbFlatten(geometry->getGeometryType()) == wkbPolygon) {
+                OGRPolygon* polygon = dynamic_cast<OGRPolygon*>(geometry);
+                // 打印多边形的顶点坐标
+                OGRLinearRing* ring = polygon->getExteriorRing();
+                for (int i = 0; i < ring->getNumPoints(); ++i) {
+                    OGRPoint point;
+                    ring->getPoint(i, &point);
+                    std::cout << "Point " << i << ": (" << point.getX() << ", " << point.getY() << ")" << std::endl;
+                }
+            }
+
+            // 释放要素对象
+            OGRFeature::DestroyFeature(feature);
+        }
+    }
+
+
+
+private:
+    void createPolygons() {
+
+        if (mDataset == nullptr) {
             std::cerr << "创建内存数据源失败！" << std::endl;
             return;
         }
 
         // 创建图层
-        mLayer = dataset->CreateLayer("labels", nullptr, wkbPolygon, nullptr);
+        mLayer = mDataset->CreateLayer("labels", nullptr, wkbPolygon, nullptr);
         if (mLayer == nullptr) {
             std::cerr << "创建图层失败！" << std::endl;
-            GDALClose(dataset);
+            GDALClose(mDataset);
             return;
         }
+
+        std::cout << "图层创建成功，mLayer 地址: " << mLayer << std::endl;
 
         // 添加字段
         OGRFieldDefn fieldDefn("Label", OFTInteger);
         if (mLayer->CreateField(&fieldDefn) != OGRERR_NONE) {
             std::cerr << "创建字段失败！" << std::endl;
-            GDALClose(dataset);
+            GDALClose(mDataset);
             return;
         }
 
@@ -96,11 +175,14 @@ private:
         }
         std::cout << "多边形创建完成" << std::endl;
 
-        GDALClose(dataset);
+        std::cout << "图层名称: " << mLayer->GetName() << std::endl;
+        std::cout << "图层要素数量: " << mLayer->GetFeatureCount(FALSE) << std::endl;
     }
     
 
 private:
+    GDALDriver* mDriver;
+    GDALDataset* mDataset;
     SegmentationResult mSegResult;
     OGRLayer* mLayer;
 };

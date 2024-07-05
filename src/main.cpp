@@ -8,6 +8,7 @@
 #include <QFileDialog>
 #include <QObject>
 #include <QGraphicsScene>
+#include <QGraphicsPolygonItem>
 #include "CustomGraphicsView.h"
 #include "SegmentationResult.cpp"
 #include "PolygonManager.cpp"
@@ -21,15 +22,19 @@ class SNICApp : public QMainWindow {
     Q_OBJECT
 
 public:
-    SNICApp(QWidget* parent = nullptr) : QMainWindow(parent) {
+    SNICApp(QWidget* parent = nullptr) : QMainWindow(parent), mDataset(nullptr) {
         initUI();
     }
 
     ~SNICApp() {
-        GDALClose(mDataset);
+        if (mDataset != nullptr) {
+            GDALClose(mDataset);
+        }
         delete mButton;
         delete mGraphicsScene;
         delete mGraphicsView;
+        delete mSegResult;
+        delete mPolygonManager;
     }
 
 private slots:
@@ -40,7 +45,7 @@ private slots:
             mImageFileName = fileName.toStdString();
             executeSNIC();
             exportResult();
-            PolygonManager polygonManager(mSegResult);
+            showPolygons();
         }
     }
 
@@ -57,6 +62,7 @@ private:
         mGraphicsScene = new QGraphicsScene(this);
         mGraphicsView->setScene(mGraphicsScene);
         mGraphicsView->setGeometry(10, 50, 780, 540);
+
     }
 
     void executeSNIC() {
@@ -68,7 +74,7 @@ private:
 
             if (mDataset != nullptr) {
                 segment();
-                std::cout << "分割结果标签数量: " << mSegResult.getLabelCount() << std::endl;
+                std::cout << "分割结果标签数量: " << mSegResult->getLabelCount() << std::endl;
                 
             }
             
@@ -76,7 +82,7 @@ private:
     }
 
     void exportResult() {
-        mSegResult.exportToCSV();   // 导出结果到CSV文件
+        mSegResult->exportToCSV();   // 导出结果到CSV文件
     }
 
     void getDataSet() {
@@ -131,12 +137,21 @@ private:
 
         std::cout << "图像分割完成" << std::endl;
 
-        mSegResult = SegmentationResult(plabels, pnumlabels, w, h);
+        mSegResult = new SegmentationResult(plabels, pnumlabels, w, h);
 
         delete[] pinp;
         delete[] plabels;
         delete[] pnumlabels;
 
+    }
+
+    void showPolygons() {
+        mPolygonManager = new PolygonManager(*mSegResult);
+        //mPolygonManager.createPolygons();
+        std::vector<QPolygonF> polygonData = mPolygonManager->getPolygonData();
+        for (const QPolygonF& polygon : polygonData) {
+            mGraphicsScene->addPolygon(polygon);
+        }
     }
 
 private:
@@ -145,7 +160,8 @@ private:
     CustomGraphicsView* mGraphicsView;
     QGraphicsScene* mGraphicsScene;
     GDALDataset* mDataset;
-    SegmentationResult mSegResult;
+    SegmentationResult* mSegResult;
+    PolygonManager* mPolygonManager;
 };
 
 int main(int argc, char* argv[]) {
