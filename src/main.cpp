@@ -187,15 +187,39 @@ private:
             mPolygonItemMap[i]->setPen(QPen(Qt::black, 0.5));
 
             // 绘制多边形
-            mGraphicsScene->addItem(polygonItem);
+            //mGraphicsScene->addItem(polygonItem);
 
             //mGraphicsScene->update();
             
-            if (mPolygonItemMap.find(100) != mPolygonItemMap.end())
-            mPolygonItemMap[100]->setPen(QPen(Qt::gray, 0.5));
 
             
         }
+        //mPolygonItemMap[100]->setPen(QPen(Qt::gray, 0.5));
+
+        QPolygon polygon1({ QPoint(100, 100), QPoint(100, 200), QPoint(200, 200), QPoint(200, 100) });
+        QPolygon polygon2({ QPoint(200, 100), QPoint(200, 200), QPoint(300, 200), QPoint(300, 100) });
+        QPolygon polygon3({ QPoint(500, 500), QPoint(500, 600), QPoint(600, 600), QPoint(600, 500) });
+
+        //mGraphicsScene->addPolygon(polygon1);
+        //mGraphicsScene->addPolygon(polygon2);
+
+        QRegion region1(polygon1);
+        QRegion region2(polygon2);
+        QRegion region3(polygon3);
+
+        QRegion region = region1.united(region2).united(region3);
+
+        qDebug() << "Region:" << region;
+
+        QPolygon mergedPolygon;
+        for (const QRect& rect : region) {
+            mergedPolygon << rect.topLeft() << rect.topRight() << rect.bottomRight() << rect.bottomLeft();
+        }
+
+        QGraphicsPolygonItem* mergedPolygonItem = mGraphicsScene->addPolygon(mergedPolygon);
+        mergedPolygonItem->setPen(QPen(Qt::red, 2)); // 设置画笔颜色和宽度
+
+
     }
 
     QPolygon convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygon) {

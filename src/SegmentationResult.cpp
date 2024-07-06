@@ -106,53 +106,19 @@ public:
             }
         }
 
+
+
         
         for (auto& pair : pointMap) {
             std::vector<OGRPoint>& points = pair.second;
             if (points.empty()) continue;
 
-            points = simplifyPolygon(points, 1.0);
+            //points = simplifyPolygon(points, 1.0);
 
             std::vector<OGRPoint> sortedPoints;
 
             sortedPoints = sortPolygonVertices(points);
 
-            
-            //OGRPoint startPoint = points[0];
-            //sortedPoints.push_back(startPoint);
-            //points.erase(std::remove(points.begin(), points.end(), startPoint), points.end());
-
-            //OGRPoint currentPoint = startPoint;
-            //int direction = 3; // 初始方向为左上角
-
-            //while (!points.empty()) {
-            //    bool foundNextPoint = false;
-            //    for (int i = 0; i < 8; ++i) {
-            //        OGRPoint nextPoint;
-            //        switch ((direction + i) % 8) {
-            //        case 0: nextPoint = OGRPoint(currentPoint.getX() + 1, currentPoint.getY()); break; // 右方
-            //        case 1: nextPoint = OGRPoint(currentPoint.getX() + 1, currentPoint.getY() + 1); break; // 右下方
-            //        case 2: nextPoint = OGRPoint(currentPoint.getX(), currentPoint.getY() + 1); break; // 下方
-            //        case 3: nextPoint = OGRPoint(currentPoint.getX() - 1, currentPoint.getY() + 1); break; // 左下方
-            //        case 4: nextPoint = OGRPoint(currentPoint.getX() - 1, currentPoint.getY()); break; // 左方
-            //        case 5: nextPoint = OGRPoint(currentPoint.getX() - 1, currentPoint.getY() - 1); break; // 左上方
-            //        case 6: nextPoint = OGRPoint(currentPoint.getX(), currentPoint.getY() - 1); break; // 上方
-            //        case 7: nextPoint = OGRPoint(currentPoint.getX() + 1, currentPoint.getY() - 1); break; // 右上方
-            //        }
-            //        auto it = std::find(points.begin(), points.end(), nextPoint);
-            //        if (it != points.end()) {
-            //            sortedPoints.push_back(*it);
-            //            currentPoint = *it;
-            //            points.erase(it);
-            //            direction = (direction + i + 5) % 8; // 更新方向
-            //            foundNextPoint = true;
-            //            break;
-            //        }
-            //    }
-            //    if (!foundNextPoint) {
-            //        break;
-            //    }
-            //}
 
             OGRLinearRing* ring = new OGRLinearRing();
             for (const auto& point : sortedPoints) {
@@ -262,6 +228,12 @@ private:
 
         return sortedPoints;
     }
+
+    std::vector<OGRPoint> sortPointsByBoundaryTracing(const std::vector<OGRPoint>& points) {
+        
+    }
+
+    
 
 private:
     int mLabelCount;
