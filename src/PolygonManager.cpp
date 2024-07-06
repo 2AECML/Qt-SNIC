@@ -2,7 +2,8 @@
 #include "SegmentationResult.cpp"
 #include <gdal_priv.h>
 #include <ogrsf_frmts.h>
-#include <QPolygonF>
+#include <QPolygon>
+#include <set>
 
 class PolygonManager {
 public:
@@ -23,44 +24,8 @@ public:
         }
     }
 
-    std::vector<QPolygonF> getPolygonData() {
-
-        std::vector<QPolygonF> polygonData;
-
-        if (mLayer == nullptr) {
-            std::cerr << "图层未初始化！" << std::endl;
-            return polygonData;
-        }
-
-        std::cout << "mLayer 地址: " << mLayer << std::endl;
-        std::cout << "图层名称: " << mLayer->GetName() << std::endl;
-        std::cout << "图层要素数量: " << mLayer->GetFeatureCount(FALSE) << std::endl;
-
-
-        // 遍历图层中的所有要素
-        OGRFeature* feature;
-        mLayer->ResetReading();
-        while ((feature = mLayer->GetNextFeature()) != nullptr) {
-            // 获取几何属性
-            OGRGeometry* geometry = feature->GetGeometryRef();
-            if (geometry != nullptr && wkbFlatten(geometry->getGeometryType()) == wkbPolygon) {
-                OGRPolygon* polygon = dynamic_cast<OGRPolygon*>(geometry);
-                // 将 OGRPolygon 转换为 QPolygonF
-                QPolygonF qPolygon;
-                OGRLinearRing* ring = polygon->getExteriorRing();
-                for (int i = 0; i < ring->getNumPoints(); ++i) {
-                    OGRPoint point;
-                    ring->getPoint(i, &point);
-                    qPolygon << QPointF(point.getX(), point.getY());
-                }
-                polygonData.push_back(qPolygon);
-            }
-
-            // 释放要素对象
-            OGRFeature::DestroyFeature(feature);
-        }
-
-        return polygonData;
+    void getPolygons() {
+        
     }
 
     void printLayerContents() {
@@ -89,8 +54,6 @@ public:
             OGRFeature::DestroyFeature(feature);
         }
     }
-
-
 
 private:
     void createPolygons() {
@@ -125,11 +88,14 @@ private:
         int cols = labels[0].size();
         std::vector<std::vector<bool>> visited(rows, std::vector<bool>(cols, false));
 
+        std::cout << "遍历labels中..." << std::endl;
+
         for (int i = 0; i < rows; ++i) {
             for (int j = 0; j < cols; ++j) {
                 if (!visited[i][j]) {
                     int label = labels[i][j];
                     std::vector<std::pair<int, int>> region;
+                    std::set<std::pair<int, int>> boundary;
                     std::vector<std::pair<int, int>> queue;
                     queue.push_back(std::make_pair(i, j));
                     visited[i][j] = true;
@@ -145,11 +111,21 @@ private:
                         for (int k = 0; k < 4; ++k) {
                             int nx = x + dx[k];
                             int ny = y + dy[k];
-                            if (nx >= 0 && nx < rows && ny >= 0 && ny < cols && 
-                                !visited[nx][ny] && labels[nx][ny] == label) {
-                                visited[nx][ny] = true;
-                                queue.push_back(std::make_pair(nx, ny));
+                            if (nx >= 0 && nx < rows && ny >= 0 && ny < cols) {
+                                if (!visited[nx][ny]) {
+                                    if (labels[nx][ny] == label) {
+                                        visited[nx][ny] = true;
+                                        queue.push_back(std::make_pair(nx, ny));
+                                    }
+                                    else {
+                                        boundary.insert(std::make_pair(x, y));
+                                    }
+                                }
                             }
+                            else {
+                                boundary.insert(std::make_pair(x, y));
+                            }
+                            
                         }
                     }
 
@@ -159,11 +135,22 @@ private:
                     OGRPolygon polygon;
                     OGRLinearRing ring;
 
-                    for (const auto& [x, y] : region) {
+                    // 提取边界顶点
+                    for (const auto& [x, y] : boundary) {
                         ring.addPoint(y, x);
                     }
                     ring.closeRings();
                     polygon.addRing(&ring);
+
+                    // 打印 ring 的相关信息
+                    int numPoints = ring.getNumPoints();
+                    std::cout << feature->GetFID() << " Ring 的顶点数: " << numPoints << std::endl;
+
+                    for (int i = 0; i < numPoints; ++i) {
+                        OGRPoint point;
+                        ring.getPoint(i, &point);
+                        std::cout << "顶点 " << i << ": (" << point.getX() << ", " << point.getY() << ")" << std::endl;
+                    }
 
                     feature->SetGeometry(&polygon);
                     if (mLayer->CreateFeature(feature) != OGRERR_NONE) {
@@ -180,9 +167,11 @@ private:
     }
     
 
+
 private:
     GDALDriver* mDriver;
     GDALDataset* mDataset;
     SegmentationResult mSegResult;
     OGRLayer* mLayer;
+    std::vector<QPolygon> mPolygons;
 };

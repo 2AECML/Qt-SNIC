@@ -9,6 +9,9 @@
 #include <QObject>
 #include <QGraphicsScene>
 #include <QGraphicsPolygonItem>
+#include <QDebug>
+#include <QPolygon>
+#include <QPoint>
 #include "CustomGraphicsView.h"
 #include "SegmentationResult.cpp"
 #include "PolygonManager.cpp"
@@ -22,7 +25,7 @@ class SNICApp : public QMainWindow {
     Q_OBJECT
 
 public:
-    SNICApp(QWidget* parent = nullptr) : QMainWindow(parent), mDataset(nullptr) {
+    SNICApp(QWidget* parent = nullptr) : QMainWindow(parent), mDataset(nullptr), mSegResult(nullptr), mPolygonManager(nullptr) {
         initUI();
     }
 
@@ -30,11 +33,26 @@ public:
         if (mDataset != nullptr) {
             GDALClose(mDataset);
         }
-        delete mButton;
-        delete mGraphicsScene;
-        delete mGraphicsView;
-        delete mSegResult;
-        delete mPolygonManager;
+
+        if (mButton != nullptr) {
+            delete mButton;
+        }
+
+        if (mGraphicsScene != nullptr) {
+            delete mGraphicsScene;
+        }
+
+        if (mGraphicsView != nullptr) {
+            delete mGraphicsView;
+        }
+
+        if (mSegResult != nullptr) {
+            delete mSegResult;
+        }
+
+        if (mPolygonManager != nullptr) {
+            delete mPolygonManager;
+        }
     }
 
 private slots:
@@ -146,12 +164,38 @@ private:
     }
 
     void showPolygons() {
-        mPolygonManager = new PolygonManager(*mSegResult);
-        //mPolygonManager.createPolygons();
-        std::vector<QPolygonF> polygonData = mPolygonManager->getPolygonData();
-        for (const QPolygonF& polygon : polygonData) {
-            mGraphicsScene->addPolygon(polygon);
+        mSegResult->generatePolygons();
+        for (int i = 0; i < mSegResult->getPolygonCount(); ++i) {
+            std::cout << "正在绘制第" << i + 1 << "个多边形..." << std::endl;
+
+            // 获取第i个标签对应的OGRPolygon
+            const OGRPolygon* ogrPolygon = mSegResult->getPolygonByLabel(i);
+
+            // 转换为QPolygon
+            //QPolygon qPolygon = convertOGRPolygonToQPolygon(ogrPolygon);
+
+            //QPolygon qPolygon({ QPoint(188,188), QPoint(189,188), QPoint(190,188), QPoint(191,188), QPoint(192,188), QPoint(193,188), QPoint(194,188), QPoint(195,188), QPoint(196,188), QPoint(188,189), QPoint(197,189), QPoint(198,189), QPoint(199,189), QPoint(188,190), QPoint(199,190), QPoint(188,191), QPoint(199,191), QPoint(188,192), QPoint(199,192), QPoint(188,193), QPoint(199,193), QPoint(188,194), QPoint(199,194), QPoint(188,195), QPoint(199,195), QPoint(188,196), QPoint(199,196), QPoint(188,197), QPoint(199,197), QPoint(188,198), QPoint(199,198), QPoint(189,199), QPoint(190,199), QPoint(191,199), QPoint(192,199), QPoint(193,199), QPoint(194,199), QPoint(195,199), QPoint(196,199), QPoint(197,199), QPoint(198,199), QPoint(199,199), QPoint(188,188) });
+
+            QPolygon qPolygon({ QPoint(188,188), QPoint(189,188), QPoint(190,188), QPoint(191,188), QPoint(192,188), QPoint(193,188), QPoint(194,188), QPoint(195,188), QPoint(196,188), QPoint(188,189), QPoint(197,189), QPoint(198,189), QPoint(199,189), QPoint(188,190), QPoint(199,190), QPoint(188,191), QPoint(199,191), QPoint(188,192), QPoint(199,192), QPoint(188,193), QPoint(199,193), QPoint(188,194), QPoint(199,194), QPoint(188,195), QPoint(199,195), QPoint(188,196), QPoint(199,196), QPoint(188,197), QPoint(199,197), QPoint(188,198), QPoint(199,198), QPoint(189,199), QPoint(190,199), QPoint(191,199), QPoint(192,199), QPoint(193,199), QPoint(194,199), QPoint(195,199), QPoint(196,199), QPoint(197,199), QPoint(198,199), QPoint(199,199), QPoint(188,188) });
+
+
+            qDebug() << "Polygon:" << qPolygon;
+
+            // 绘制多边形
+            mGraphicsScene->addPolygon(qPolygon, QPen(Qt::red));
         }
+    }
+
+    QPolygon convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygon) {
+        QPolygon polygon;
+        const OGRLinearRing* exteriorRing = ogrPolygon->getExteriorRing();
+        int pointCount = exteriorRing->getNumPoints();
+        for (int i = 0; i < pointCount; ++i) {
+            OGRPoint point;
+            exteriorRing->getPoint(i, &point);
+            polygon << QPoint(point.getX(), point.getY());
+        }
+        return polygon;
     }
 
 private:
@@ -166,6 +210,7 @@ private:
 
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
+    qDebug() << "Qt Version:" << QT_VERSION_STR;
     SNICApp window;
     window.show();
     return app.exec();
