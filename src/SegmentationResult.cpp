@@ -5,6 +5,7 @@
 #include <iostream>
 #include <map>
 #include <ogrsf_frmts.h>
+#include <algorithm>
 
 class SegmentationResult {
 public:
@@ -105,14 +106,18 @@ public:
             }
         }
 
-        // 使用改进的边界跟踪算法对点进行排序
+        
         for (auto& pair : pointMap) {
             std::vector<OGRPoint>& points = pair.second;
             if (points.empty()) continue;
 
+            points = simplifyPolygon(points, 1.0);
+
             std::vector<OGRPoint> sortedPoints;
 
-            sortedPoints = ClockwiseSortPoints(points);
+            sortedPoints = sortPolygonVertices(points);
+
+            
             //OGRPoint startPoint = points[0];
             //sortedPoints.push_back(startPoint);
             //points.erase(std::remove(points.begin(), points.end(), startPoint), points.end());
@@ -134,7 +139,6 @@ public:
             //        case 6: nextPoint = OGRPoint(currentPoint.getX(), currentPoint.getY() - 1); break; // 上方
             //        case 7: nextPoint = OGRPoint(currentPoint.getX() + 1, currentPoint.getY() - 1); break; // 右上方
             //        }
-
             //        auto it = std::find(points.begin(), points.end(), nextPoint);
             //        if (it != points.end()) {
             //            sortedPoints.push_back(*it);
@@ -191,52 +195,72 @@ public:
     }
 
 private:
-    //若点a大于点b,即点a在点b顺时针方向,返回true,否则返回false
-    bool PointCmp(const OGRPoint& a, const OGRPoint& b, const OGRPoint& center)
-    {
-        if (a.getX() >= 0 && b.getX() < 0)
-            return true;
-        if (a.getX() == 0 && b.getX() == 0)
-            return a.getY() > b.getY();
-        //向量OA和向量OB的叉积
-        int det = (a.getX() - center.getX()) * (b.getY() - center.getY()) - (b.getX() - center.getX()) * (a.getY() - center.getY());
-        if (det < 0)
-            return true;
-        if (det > 0)
-            return false;
-        //向量OA和向量OB共线，以距离判断大小
-        int d1 = (a.getX() - center.getX()) * (a.getX() - center.getX()) + (a.getY() - center.getY()) * (a.getY() - center.getY());
-        int d2 = (b.getX() - center.getX()) * (b.getX() - center.getY()) + (b.getY() - center.getY()) * (b.getY() - center.getY());
-        return d1 > d2;
+
+    // 计算两点之间的距离
+    double distance(const OGRPoint& p1, const OGRPoint& p2) {
+        return std::sqrt(std::pow(p2.getX() - p1.getX(), 2) + std::pow(p2.getY() - p1.getY(), 2));
     }
 
-    std::vector<OGRPoint> ClockwiseSortPoints(std::vector<OGRPoint> vPoints)
-    {
-        //计算重心
-        OGRPoint center;
-        double x = 0, y = 0;
-        for (int i = 0; i < vPoints.size(); i++)
-        {
-            x += vPoints[i].getX();
-            y += vPoints[i].getY();
+    // 临近点简化算法
+    std::vector<OGRPoint> simplifyPolygon(const std::vector<OGRPoint>& points, double tolerance) {
+        std::vector<OGRPoint> simplifiedPoints;
+        if (points.empty()) {
+            return simplifiedPoints;
         }
-        center.setX((int)x / vPoints.size());
-        center.setY((int)y / vPoints.size());
 
-        //冒泡排序
-        for (int i = 0; i < vPoints.size() - 1; i++)
-        {
-            for (int j = 0; j < vPoints.size() - i - 1; j++)
-            {
-                if (PointCmp(vPoints[j], vPoints[j + 1], center))
-                {
-                    OGRPoint tmp = vPoints[j];
-                    vPoints[j] = vPoints[j + 1];
-                    vPoints[j + 1] = tmp;
+        simplifiedPoints.push_back(points[0]);
+        for (size_t i = 1; i < points.size(); ++i) {
+            if (distance(simplifiedPoints.back(), points[i]) > tolerance) {
+                simplifiedPoints.push_back(points[i]);
+            }
+        }
+
+        // 确保最后一个点和第一个点之间的距离也大于容忍度
+        if (distance(simplifiedPoints.back(), simplifiedPoints.front()) <= tolerance) {
+            simplifiedPoints.pop_back();
+        }
+
+        return simplifiedPoints;
+    }
+
+    // 找到最近的点
+    size_t findNearestPoint(const OGRPoint& point, const std::vector<OGRPoint>& points, const std::vector<bool>& used) {
+        double minDistance = std::numeric_limits<double>::max();
+        size_t nearestIndex = 0;
+        for (size_t i = 0; i < points.size(); ++i) {
+            if (!used[i]) {
+                double dist = distance(point, points[i]);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    nearestIndex = i;
                 }
             }
         }
-        return vPoints;
+        return nearestIndex;
+    }
+
+    // 多边形顶点排序算法
+    std::vector<OGRPoint> sortPolygonVertices(std::vector<OGRPoint>& points) {
+        if (points.empty()) {
+            return points;
+        }
+
+        std::vector<OGRPoint> sortedPoints;
+        std::vector<bool> used(points.size(), false);
+
+        // 选择第一个点
+        size_t currentIndex = 0;
+        sortedPoints.push_back(points[currentIndex]);
+        used[currentIndex] = true;
+
+        // 找到最近的点并添加到排序后的点集中
+        while (sortedPoints.size() < points.size()) {
+            currentIndex = findNearestPoint(sortedPoints.back(), points, used);
+            sortedPoints.push_back(points[currentIndex]);
+            used[currentIndex] = true;
+        }
+
+        return sortedPoints;
     }
 
 private:

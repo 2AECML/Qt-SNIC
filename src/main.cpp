@@ -14,7 +14,8 @@
 #include <QPoint>
 #include "CustomGraphicsView.h"
 #include "SegmentationResult.cpp"
-#include "PolygonManager.cpp"
+#include "CustomPolygonItem.cpp"
+
 
 extern "C" {
     void SNIC_main(double* pinp, int w, int h, int c, int numsuperpixels, double compactness, bool doRGBtoLAB, int* plabels, int* pnumlabels);
@@ -25,7 +26,7 @@ class SNICApp : public QMainWindow {
     Q_OBJECT
 
 public:
-    SNICApp(QWidget* parent = nullptr) : QMainWindow(parent), mDataset(nullptr), mSegResult(nullptr), mPolygonManager(nullptr) {
+    SNICApp(QWidget* parent = nullptr) : QMainWindow(parent), mDataset(nullptr), mSegResult(nullptr) {
         initUI();
     }
 
@@ -50,9 +51,7 @@ public:
             delete mSegResult;
         }
 
-        if (mPolygonManager != nullptr) {
-            delete mPolygonManager;
-        }
+
     }
 
 private slots:
@@ -174,12 +173,28 @@ private:
             // 转换为QPolygon
             QPolygon qPolygon = convertOGRPolygonToQPolygon(ogrPolygon);
 
+
             //QPolygon qPolygon({ QPoint(188,188), QPoint(189,188), QPoint(190,188), QPoint(191,188), QPoint(192,188), QPoint(193,188), QPoint(194,188), QPoint(195,188), QPoint(196,188), QPoint(188,189), QPoint(197,189), QPoint(198,189), QPoint(199,189), QPoint(188,190), QPoint(199,190), QPoint(188,191), QPoint(199,191), QPoint(188,192), QPoint(199,192), QPoint(188,193), QPoint(199,193), QPoint(188,194), QPoint(199,194), QPoint(188,195), QPoint(199,195), QPoint(188,196), QPoint(199,196), QPoint(188,197), QPoint(199,197), QPoint(188,198), QPoint(199,198), QPoint(189,199), QPoint(190,199), QPoint(191,199), QPoint(192,199), QPoint(193,199), QPoint(194,199), QPoint(195,199), QPoint(196,199), QPoint(197,199), QPoint(198,199), QPoint(199,199), QPoint(188,188) });
 
             //qDebug() << "Polygon:" << qPolygon;
 
+            CustomPolygonItem* polygonItem = new CustomPolygonItem(qPolygon);
+
+            mPolygonItemMap[i] = polygonItem;
+
+            mPolygonItemMap[i]->setLabel(i);
+
+            mPolygonItemMap[i]->setPen(QPen(Qt::black, 0.5));
+
             // 绘制多边形
-            mGraphicsScene->addPolygon(qPolygon, QPen(Qt::red));
+            mGraphicsScene->addItem(polygonItem);
+
+            //mGraphicsScene->update();
+            
+            if (mPolygonItemMap.find(100) != mPolygonItemMap.end())
+            mPolygonItemMap[100]->setPen(QPen(Qt::gray, 0.5));
+
+            
         }
     }
 
@@ -191,6 +206,7 @@ private:
             OGRPoint point;
             exteriorRing->getPoint(i, &point);
             polygon << QPoint(point.getX(), point.getY());
+            //mGraphicsScene->addItem(new QGraphicsRectItem(point.getX(), point.getY(), 1, 1));
         }
         return polygon;
     }
@@ -202,7 +218,7 @@ private:
     QGraphicsScene* mGraphicsScene;
     GDALDataset* mDataset;
     SegmentationResult* mSegResult;
-    PolygonManager* mPolygonManager;
+    std::map<int, CustomPolygonItem*> mPolygonItemMap;
 };
 
 int main(int argc, char* argv[]) {

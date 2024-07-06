@@ -29,15 +29,15 @@ void CustomGraphicsView::mousePressEvent(QMouseEvent* event) {
         setCursor(Qt::ClosedHandCursor);
         event->accept();
     }
-    else if (event->button() == Qt::LeftButton) {
-        // 获取点击的屏幕坐标
-        QPointF screenPos = event->pos();
-        // 将屏幕坐标转换为场景坐标
-        QPointF scenePos = mapToScene(screenPos.toPoint());
-        // 发射信号，传递场景坐标
-        emit mousePressed(scenePos);
-        event->accept();
-    }
+    //else if (event->button() == Qt::LeftButton) {
+    //    // 获取点击的屏幕坐标
+    //    QPointF screenPos = event->pos();
+    //    // 将屏幕坐标转换为场景坐标
+    //    QPointF scenePos = mapToScene(screenPos.toPoint());
+    //    // 发射信号，传递场景坐标
+    //    emit mousePressed(scenePos);
+    //    event->accept();
+    //}
     else {
         QGraphicsView::mousePressEvent(event);
     }
