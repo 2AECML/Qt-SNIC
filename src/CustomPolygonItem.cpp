@@ -9,7 +9,7 @@ class CustomPolygonItem : public QGraphicsPolygonItem {
 public:
 	CustomPolygonItem(const QPolygon& polygon, QGraphicsItem* parent = nullptr) :
 		QGraphicsPolygonItem(polygon, parent) {
-		mOriginalPen = QPen(Qt::black, 0.5);
+		mOriginalPen = QPen(Qt::black, 1);
 		setAcceptHoverEvents(true);
 	}
 
@@ -30,7 +30,7 @@ protected:
 			mIsSelected = !mIsSelected;
 
 			if (mIsSelected) {
-				this->setPen(QPen(Qt::blue, 0.1));
+				this->setPen(QPen(Qt::blue, 1.2));
 				std::cout << "label:" << mLabel << std::endl;
 				std::cout << "包含" << this->polygon().size() << "个边界点" << std::endl;
 				for (int i = 0; i < this->polygon().size(); ++i) {

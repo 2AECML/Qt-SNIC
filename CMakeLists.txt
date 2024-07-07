@@ -54,11 +54,24 @@ find_package(GDAL REQUIRED)
 message(STATUS "GDAL include dirs: ${GDAL_INCLUDE_DIRS}")
 message(STATUS "GDAL libraries: ${GDAL_LIBRARIES}")
 
+# 寻找 OpenCV 库
+find_package(OpenCV REQUIRED)
+
+# 检查 OpenCV 包含目录和库
+message(STATUS "OpenCV include dirs: ${OpenCV_INCLUDE_DIRS}")
+message(STATUS "OpenCV libraries: ${OpenCV_LIBRARIES}")
+
 # 添加库目录
-include_directories(${Qt5Core_INCLUDE_DIRS} ${Qt5Widgets_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${GDAL_INCLUDE_DIR})
+include_directories(${Qt5Core_INCLUDE_DIRS} 
+	${Qt5Widgets_INCLUDE_DIRS} 
+	${OpenCV_INCLUDE_DIRS} 
+	${GDAL_INCLUDE_DIR})
 
 # 链接库
-target_link_libraries(use_gdal ${Qt5Core_LIBRARIES} ${Qt5Widgets_LIBRARIES} ${OpenCV_LIBRARIES} ${GDAL_LIBRARIES})
+target_link_libraries(use_gdal ${Qt5Core_LIBRARIES} 
+	${Qt5Widgets_LIBRARIES} 
+	${OpenCV_LIBRARIES} 
+	${GDAL_LIBRARIES})
 
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

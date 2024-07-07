@@ -59,7 +59,10 @@ private slots:
 
         QString fileName = QFileDialog::getOpenFileName(this, "Open Image", "", "Images (*.png *.xpm *.jpg);;All Files (*)");
         if (!fileName.isEmpty()) {
+            mGraphicsView->resetCachedContent();
+            mGraphicsScene->clear();
             mImageFileName = fileName.toStdString();
+            showImage();
             executeSNIC();
             exportResult();
             showPolygons();
@@ -80,6 +83,15 @@ private:
         mGraphicsView->setScene(mGraphicsScene);
         mGraphicsView->setGeometry(10, 50, 780, 540);
 
+    }
+
+    void showImage() {
+        // 加载图片
+        QPixmap pixmap(mImageFileName.c_str());
+
+        QGraphicsPixmapItem* image = new QGraphicsPixmapItem(pixmap);
+
+        mGraphicsScene->addItem(image);
     }
 
     void executeSNIC() {
@@ -184,40 +196,35 @@ private:
 
             mPolygonItemMap[i]->setLabel(i);
 
-            mPolygonItemMap[i]->setPen(QPen(Qt::black, 0.5));
+            mPolygonItemMap[i]->setPen(QPen(Qt::black, 1));
 
             // 绘制多边形
-            //mGraphicsScene->addItem(polygonItem);
-
-            //mGraphicsScene->update();
+            mGraphicsScene->addItem(polygonItem);
             
-
             
         }
         //mPolygonItemMap[100]->setPen(QPen(Qt::gray, 0.5));
 
-        QPolygon polygon1({ QPoint(100, 100), QPoint(100, 200), QPoint(200, 200), QPoint(200, 100) });
-        QPolygon polygon2({ QPoint(200, 100), QPoint(200, 200), QPoint(300, 200), QPoint(300, 100) });
-        QPolygon polygon3({ QPoint(500, 500), QPoint(500, 600), QPoint(600, 600), QPoint(600, 500) });
-
         //mGraphicsScene->addPolygon(polygon1);
         //mGraphicsScene->addPolygon(polygon2);
 
-        QRegion region1(polygon1);
-        QRegion region2(polygon2);
-        QRegion region3(polygon3);
+        //QPolygon polygon1 = mPolygonItemMap[0]->polygon().toPolygon();
+        //QPolygon polygon2 = mPolygonItemMap[2]->polygon().toPolygon();
 
-        QRegion region = region1.united(region2).united(region3);
+        //QRegion region1(polygon1);
+        //QRegion region2(polygon2);
 
-        qDebug() << "Region:" << region;
+        //QRegion region = region1.united(region2);
 
-        QPolygon mergedPolygon;
-        for (const QRect& rect : region) {
-            mergedPolygon << rect.topLeft() << rect.topRight() << rect.bottomRight() << rect.bottomLeft();
-        }
+        //qDebug() << "Region:" << region;
 
-        QGraphicsPolygonItem* mergedPolygonItem = mGraphicsScene->addPolygon(mergedPolygon);
-        mergedPolygonItem->setPen(QPen(Qt::red, 2)); // 设置画笔颜色和宽度
+        //QPolygon mergedPolygon;
+        //for (const QRect& rect : region) {
+        //    mergedPolygon << rect.topLeft() << rect.topRight() << rect.bottomRight() << rect.bottomLeft();
+        //}
+
+        //QGraphicsPolygonItem* mergedPolygonItem = mGraphicsScene->addPolygon(mergedPolygon);
+        //mergedPolygonItem->setPen(QPen(Qt::red, 2)); // 设置画笔颜色和宽度
 
 
     }

@@ -6,6 +6,7 @@
 #include <map>
 #include <ogrsf_frmts.h>
 #include <algorithm>
+#include <opencv2/opencv.hpp>
 
 class SegmentationResult {
 public:
@@ -80,53 +81,44 @@ public:
         int width = mLabels[0].size();
         int height = mLabels.size();
 
-        std::map<int, std::vector<OGRPoint>> pointMap;
-
-        // 遍历每个像素，生成每个标签所对应的多边形边界ring
+        // 将 mLabels 转换为 OpenCV 的 Mat 对象
+        cv::Mat labelsMat(height, width, CV_32SC1);
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
-                int label = mLabels[y][x];
-
-                if (mPolygons.find(label) == mPolygons.end()) {
-                    mPolygons[label] = new OGRPolygon();
-                }
-
-                if (pointMap.find(label) == pointMap.end()) {
-                    pointMap[label] = std::vector<OGRPoint>();
-                }
-
-                if (x == 0 || y == 0 || x == width - 1 || y == height - 1) {
-                    pointMap[label].emplace_back(x, y);
-                }
-                else {
-                    if (mLabels[y - 1][x] != label || mLabels[y][x - 1] != label || mLabels[y + 1][x] != label || mLabels[y][x + 1] != label) {
-                        pointMap[label].emplace_back(x, y);
-                    }
-                }
+                labelsMat.at<int>(y, x) = mLabels[y][x];
             }
         }
 
+        // 将0值替换为一个非零的背景值
+        cv::Mat nonZeroLabelsMat = labelsMat.clone();
+        nonZeroLabelsMat.setTo(mLabelCount + 1, labelsMat == 0);
 
+        // 找到轮廓
+        std::vector<std::vector<cv::Point>> contours;
+        std::vector<cv::Vec4i> hierarchy;
+        cv::findContours(nonZeroLabelsMat, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_SIMPLE);
 
-        
-        for (auto& pair : pointMap) {
-            std::vector<OGRPoint>& points = pair.second;
-            if (points.empty()) continue;
+        // 将轮廓转换为 OGRPolygon 对象
+        for (size_t i = 0; i < contours.size(); ++i) {
+            const std::vector<cv::Point>& contour = contours[i];
+            int label = nonZeroLabelsMat.at<int>(contour[0].y, contour[0].x);
 
-            //points = simplifyPolygon(points, 1.0);
+            // 将非零的背景值转换回0
+            if (label == mLabelCount + 1) {
+                label = 0;
+            }
 
-            std::vector<OGRPoint> sortedPoints;
-
-            sortedPoints = sortPolygonVertices(points);
-
+            if (mPolygons.find(label) == mPolygons.end()) {
+                mPolygons[label] = new OGRPolygon();
+            }
 
             OGRLinearRing* ring = new OGRLinearRing();
-            for (const auto& point : sortedPoints) {
-                ring->addPoint(&point);
+            for (const auto& point : contour) {
+                ring->addPoint(point.x, point.y);
             }
             ring->closeRings();
 
-            mPolygons[pair.first]->addRingDirectly(ring);
+            mPolygons[label]->addRingDirectly(ring);
         }
 
         std::cout << "生成多边形完成" << std::endl;
@@ -146,6 +138,7 @@ public:
             }
         }
     }
+
 
 
     int getPolygonCount() {
@@ -188,51 +181,6 @@ private:
 
         return simplifiedPoints;
     }
-
-    // 找到最近的点
-    size_t findNearestPoint(const OGRPoint& point, const std::vector<OGRPoint>& points, const std::vector<bool>& used) {
-        double minDistance = std::numeric_limits<double>::max();
-        size_t nearestIndex = 0;
-        for (size_t i = 0; i < points.size(); ++i) {
-            if (!used[i]) {
-                double dist = distance(point, points[i]);
-                if (dist < minDistance) {
-                    minDistance = dist;
-                    nearestIndex = i;
-                }
-            }
-        }
-        return nearestIndex;
-    }
-
-    // 多边形顶点排序算法
-    std::vector<OGRPoint> sortPolygonVertices(std::vector<OGRPoint>& points) {
-        if (points.empty()) {
-            return points;
-        }
-
-        std::vector<OGRPoint> sortedPoints;
-        std::vector<bool> used(points.size(), false);
-
-        // 选择第一个点
-        size_t currentIndex = 0;
-        sortedPoints.push_back(points[currentIndex]);
-        used[currentIndex] = true;
-
-        // 找到最近的点并添加到排序后的点集中
-        while (sortedPoints.size() < points.size()) {
-            currentIndex = findNearestPoint(sortedPoints.back(), points, used);
-            sortedPoints.push_back(points[currentIndex]);
-            used[currentIndex] = true;
-        }
-
-        return sortedPoints;
-    }
-
-    std::vector<OGRPoint> sortPointsByBoundaryTracing(const std::vector<OGRPoint>& points) {
-        
-    }
-
     
 
 private:
