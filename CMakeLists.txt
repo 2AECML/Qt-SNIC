@@ -36,7 +36,8 @@ add_executable (use_gdal
 	${SOURCE_DIR}/SegmentationResult.cpp
 	${SOURCE_DIR}/CustomGraphicsView.cpp
 	${SOURCE_DIR}/PolygonManager.cpp
-	${SOURCE_DIR}/CustomPolygonItem.cpp)
+	${SOURCE_DIR}/CustomPolygonItem.cpp
+	${SOURCE_DIR}/WorkerThread.cpp)
 
 # 寻找 Qt 库
 find_package(Qt5 COMPONENTS Core Widgets REQUIRED)

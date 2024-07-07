@@ -4,6 +4,7 @@
 #include <QGraphicsSceneMouseEvent>
 #include <iostream>
 #include <QPen>
+#include <set>
 
 class CustomPolygonItem : public QGraphicsPolygonItem {
 public:
@@ -45,6 +46,10 @@ protected:
 			QGraphicsPolygonItem::mousePressEvent(event);
 			std::cout << (int)event->pos().x() << " " << (int)event->pos().y() << std::endl;
 		}
+	}
+
+	bool isAdjacent(const QPoint& p1, const QPoint& p2) {
+		return true;
 	}
 
 private:

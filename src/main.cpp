@@ -176,19 +176,23 @@ private:
 
     void showPolygons() {
         mSegResult->generatePolygons();
-        for (int i = 0; i < mSegResult->getPolygonCount(); ++i) {
+
+        // 合并标签
+        std::vector<int> labels = { 1, 2, 3 };
+        mSegResult->mergeLabels(labels);
+
+
+        for (int i = 0; i < mSegResult->getLabelCount(); ++i) {
             std::cout << "正在绘制第" << i + 1 << "个多边形..." << std::endl;
 
             // 获取第i个标签对应的OGRPolygon
+            if (mSegResult->getPolygonByLabel(i) == nullptr) {
+                continue;
+            }
             const OGRPolygon* ogrPolygon = mSegResult->getPolygonByLabel(i);
 
             // 转换为QPolygon
             QPolygon qPolygon = convertOGRPolygonToQPolygon(ogrPolygon);
-
-
-            //QPolygon qPolygon({ QPoint(188,188), QPoint(189,188), QPoint(190,188), QPoint(191,188), QPoint(192,188), QPoint(193,188), QPoint(194,188), QPoint(195,188), QPoint(196,188), QPoint(188,189), QPoint(197,189), QPoint(198,189), QPoint(199,189), QPoint(188,190), QPoint(199,190), QPoint(188,191), QPoint(199,191), QPoint(188,192), QPoint(199,192), QPoint(188,193), QPoint(199,193), QPoint(188,194), QPoint(199,194), QPoint(188,195), QPoint(199,195), QPoint(188,196), QPoint(199,196), QPoint(188,197), QPoint(199,197), QPoint(188,198), QPoint(199,198), QPoint(189,199), QPoint(190,199), QPoint(191,199), QPoint(192,199), QPoint(193,199), QPoint(194,199), QPoint(195,199), QPoint(196,199), QPoint(197,199), QPoint(198,199), QPoint(199,199), QPoint(188,188) });
-
-            //qDebug() << "Polygon:" << qPolygon;
 
             CustomPolygonItem* polygonItem = new CustomPolygonItem(qPolygon);
 
@@ -203,28 +207,6 @@ private:
             
             
         }
-        //mPolygonItemMap[100]->setPen(QPen(Qt::gray, 0.5));
-
-        //mGraphicsScene->addPolygon(polygon1);
-        //mGraphicsScene->addPolygon(polygon2);
-
-        //QPolygon polygon1 = mPolygonItemMap[0]->polygon().toPolygon();
-        //QPolygon polygon2 = mPolygonItemMap[2]->polygon().toPolygon();
-
-        //QRegion region1(polygon1);
-        //QRegion region2(polygon2);
-
-        //QRegion region = region1.united(region2);
-
-        //qDebug() << "Region:" << region;
-
-        //QPolygon mergedPolygon;
-        //for (const QRect& rect : region) {
-        //    mergedPolygon << rect.topLeft() << rect.topRight() << rect.bottomRight() << rect.bottomLeft();
-        //}
-
-        //QGraphicsPolygonItem* mergedPolygonItem = mGraphicsScene->addPolygon(mergedPolygon);
-        //mergedPolygonItem->setPen(QPen(Qt::red, 2)); // 设置画笔颜色和宽度
 
 
     }
@@ -237,7 +219,6 @@ private:
             OGRPoint point;
             exteriorRing->getPoint(i, &point);
             polygon << QPoint(point.getX(), point.getY());
-            //mGraphicsScene->addItem(new QGraphicsRectItem(point.getX(), point.getY(), 1, 1));
         }
         return polygon;
     }
