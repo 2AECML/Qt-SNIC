@@ -30,6 +30,7 @@ include_directories(${INCLUDE_DIR})
 add_executable (use_gdal 
 	${INCLUDE_DIR}/main.h
 	${INCLUDE_DIR}/snic.h
+	${INCLUDE_DIR}/SegmentationResult.h
 	${INCLUDE_DIR}/CustomGraphicsView.h
 	${INCLUDE_DIR}/CustomPolygonItem.h
 	${INCLUDE_DIR}/PolygonManager.h

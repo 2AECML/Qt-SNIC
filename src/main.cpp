@@ -13,7 +13,7 @@
 #include <QPolygon>
 #include <QPoint>
 #include "CustomGraphicsView.h"
-#include "SegmentationResult.cpp"
+#include "SegmentationResult.h"
 #include "CustomPolygonItem.h"
 #include "PolygonManager.h"
 
@@ -178,39 +178,13 @@ private:
     }
 
     void showPolygons() {
-        mPolygonManager = new PolygonManager(mSegResult);
+        mPolygonManager = new PolygonManager(mGraphicsScene, mSegResult);
 
         mPolygonManager->generatePolygons();
 
-        for (int i = 0; i < mSegResult->getLabelCount(); ++i) {
-            std::cout << "正在绘制第" << i + 1 << "个多边形..." << std::endl;
-
-            // 获取第i个标签对应的OGRPolygon
-            if (mPolygonManager->getPolygonByLabel(i) == nullptr) {
-                continue;
-            }
-            const OGRPolygon* ogrPolygon = mPolygonManager->getPolygonByLabel(i);
-
-            // 转换为QPolygon
-            QPolygon qPolygon = convertOGRPolygonToQPolygon(ogrPolygon);
-
-            CustomPolygonItem* polygonItem = new CustomPolygonItem(qPolygon);
-
-            connect(polygonItem, &CustomPolygonItem::polygonSelected, this, &SNICApp::handlePolygonSelected);
-
-            connect(polygonItem, &CustomPolygonItem::polygonDeselected, this, &SNICApp::handlePolygonDeselected);
-
-            mPolygonItemMap[i] = polygonItem;
-
-            mPolygonItemMap[i]->setLabel(i);
-
-            mPolygonItemMap[i]->setPen(QPen(Qt::black, 1));
-
-            // 绘制多边形
-            mGraphicsScene->addItem(polygonItem);
-            
-        }
+        mPolygonManager->showAllPolygons();
     }
+
 
     QPolygon convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygon) {
         QPolygon polygon;
@@ -222,14 +196,6 @@ private:
             polygon << QPoint(point.getX(), point.getY());
         }
         return polygon;
-    }
-
-    void handlePolygonSelected(CustomPolygonItem* polygonItem) {
-        std::cout << "Polygon with label " << polygonItem->getLabel() << " is selected!" << std::endl;
-    }
-
-    void handlePolygonDeselected(CustomPolygonItem* polygonItem) {
-        std::cout << "Polygon with label " << polygonItem->getLabel() << " is deselected!" << std::endl;
     }
 
 private:
