@@ -17,7 +17,7 @@ PolygonManager::PolygonManager(QGraphicsScene* scene, SegmentationResult* segRes
 }
 
 PolygonManager::~PolygonManager() {
-    for (auto& pair : mPolygons) {
+    for (auto& pair : mOGRPolygons) {
         delete pair.second;
     }
 }
@@ -72,8 +72,8 @@ void PolygonManager::generatePolygons() {
             label = 0;
         }
 
-        if (mPolygons.find(label) == mPolygons.end()) {
-            mPolygons[label] = new OGRPolygon();
+        if (mOGRPolygons.find(label) == mOGRPolygons.end()) {
+            mOGRPolygons[label] = new OGRPolygon();
         }
 
         OGRLinearRing* ring = new OGRLinearRing();
@@ -82,13 +82,13 @@ void PolygonManager::generatePolygons() {
         }
         ring->closeRings();
 
-        mPolygons[label]->addRingDirectly(ring);
+        mOGRPolygons[label]->addRingDirectly(ring);
     }
 
     std::cout << "生成多边形完成" << std::endl;
 
     int index = 0;
-    for (auto& pair : mPolygons) {
+    for (auto& pair : mOGRPolygons) {
         if (index++ >= 10) {
             break;
         }
@@ -122,14 +122,16 @@ void PolygonManager::showAllPolygons() {
 
         QObject::connect(polygonItem, &CustomPolygonItem::polygonDeselected, this, &PolygonManager::handlePolygonDeselected);
 
-        polygonItem->setLabel(i);
+        mPolygonItems[i] = polygonItem;
 
-        polygonItem->setPen(QPen(Qt::black, 1));
+        mPolygonItems[i]->setLabel(i);
+
+        mPolygonItems[i]->setPen(QPen(Qt::black, 1));
 
         // 绘制多边形
         mGraphicsScene->addItem(polygonItem);
-
     }
+
 }
 
 void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
@@ -152,9 +154,10 @@ void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
     // 删除合并前的多边形
     for (int i = 0; i < polygonItems.size(); ++i) {
         int label = polygonItems[i]->getLabel();
-        if (mPolygons.find(label) != mPolygons.end()) {
-            delete mPolygons[label];
-            mPolygons.erase(label);
+        if (mOGRPolygons.find(label) != mOGRPolygons.end()) {
+            delete mOGRPolygons[label];
+            mOGRPolygons.erase(label);
+            mGraphicsScene->removeItem(mPolygonItems[label]);
         }
     }
 
@@ -206,8 +209,8 @@ void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
             label = 0;
         }
 
-        if (mPolygons.find(label) == mPolygons.end()) {
-            mPolygons[label] = new OGRPolygon();
+        if (mOGRPolygons.find(label) == mOGRPolygons.end()) {
+            mOGRPolygons[label] = new OGRPolygon();
         }
 
         OGRLinearRing* ring = new OGRLinearRing();
@@ -216,7 +219,11 @@ void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
         }
         ring->closeRings();
 
-        mPolygons[label]->addRingDirectly(ring);
+        mOGRPolygons[label]->addRingDirectly(ring);
+
+        QPolygon newPolygon = convertOGRPolygonToQPolygon(mOGRPolygons[label]);
+        CustomPolygonItem* polygonItem = new CustomPolygonItem(newPolygon);
+        mGraphicsScene->addItem(polygonItem);
     }
 
     std::cout << "生成合并后的多边形完成" << std::endl;
@@ -259,6 +266,8 @@ QPolygon PolygonManager::convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygo
 
 void PolygonManager::handlePolygonSelected(CustomPolygonItem* polygonItem) {
     std::cout << "Polygon with label " << polygonItem->getLabel() << " is selected!" << std::endl;
+    mergePolygons(std::vector<CustomPolygonItem*>{mPolygonItems[1], mPolygonItems[2], mPolygonItems[3]});
+
 }
 
 void PolygonManager::handlePolygonDeselected(CustomPolygonItem* polygonItem) {

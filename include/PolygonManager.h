@@ -31,15 +31,15 @@ public:
     void mergePolygons(std::vector<CustomPolygonItem*> polygonItems);
 
 	inline int getPolygonCount() const {
-		return mPolygons.size();
+		return mOGRPolygons.size();
 	}
 
 	inline const std::map<int, OGRPolygon*>& getPolygons() {
-		return mPolygons;
+		return mOGRPolygons;
 	}
 
 	inline const OGRPolygon* getPolygonByLabel(int label) {
-		return mPolygons[label];
+		return mOGRPolygons[label];
 	}
 
 private:
@@ -60,5 +60,6 @@ private:
 private:
     QGraphicsScene* mGraphicsScene;
     SegmentationResult* mSegResult;
-	std::map<int, OGRPolygon*> mPolygons;
+	std::map<int, OGRPolygon*> mOGRPolygons;
+    std::map<int, CustomPolygonItem*> mPolygonItems;
 };
