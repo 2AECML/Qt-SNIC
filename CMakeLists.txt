@@ -31,12 +31,14 @@ add_executable (use_gdal
 	${INCLUDE_DIR}/main.h
 	${INCLUDE_DIR}/snic.h
 	${INCLUDE_DIR}/CustomGraphicsView.h
+	${INCLUDE_DIR}/CustomPolygonItem.h
+	${INCLUDE_DIR}/PolygonManager.h
 	${SOURCE_DIR}/main.cpp
 	${SOURCE_DIR}/snic.c
 	${SOURCE_DIR}/SegmentationResult.cpp
 	${SOURCE_DIR}/CustomGraphicsView.cpp
-	${SOURCE_DIR}/PolygonManager.cpp
 	${SOURCE_DIR}/CustomPolygonItem.cpp
+	${SOURCE_DIR}/PolygonManager.cpp
 	${SOURCE_DIR}/WorkerThread.cpp)
 
 # 寻找 Qt 库

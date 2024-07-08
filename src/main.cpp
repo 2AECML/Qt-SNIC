@@ -14,7 +14,8 @@
 #include <QPoint>
 #include "CustomGraphicsView.h"
 #include "SegmentationResult.cpp"
-#include "CustomPolygonItem.cpp"
+#include "CustomPolygonItem.h"
+#include "PolygonManager.h"
 
 
 extern "C" {
@@ -26,7 +27,7 @@ class SNICApp : public QMainWindow {
     Q_OBJECT
 
 public:
-    SNICApp(QWidget* parent = nullptr) : QMainWindow(parent), mDataset(nullptr), mSegResult(nullptr) {
+    SNICApp(QWidget* parent = nullptr) : QMainWindow(parent), mDataset(nullptr), mSegResult(nullptr), mPolygonManager(nullptr) {
         initUI();
     }
 
@@ -51,7 +52,9 @@ public:
             delete mSegResult;
         }
 
-
+        if (mPolygonManager != nullptr) {
+            delete mPolygonManager;
+        }
     }
 
 private slots:
@@ -175,26 +178,27 @@ private:
     }
 
     void showPolygons() {
-        mSegResult->generatePolygons();
+        mPolygonManager = new PolygonManager(mSegResult);
 
-        // 合并标签
-        std::vector<int> labels = { 1, 2, 3 };
-        mSegResult->mergeLabels(labels);
-
+        mPolygonManager->generatePolygons();
 
         for (int i = 0; i < mSegResult->getLabelCount(); ++i) {
             std::cout << "正在绘制第" << i + 1 << "个多边形..." << std::endl;
 
             // 获取第i个标签对应的OGRPolygon
-            if (mSegResult->getPolygonByLabel(i) == nullptr) {
+            if (mPolygonManager->getPolygonByLabel(i) == nullptr) {
                 continue;
             }
-            const OGRPolygon* ogrPolygon = mSegResult->getPolygonByLabel(i);
+            const OGRPolygon* ogrPolygon = mPolygonManager->getPolygonByLabel(i);
 
             // 转换为QPolygon
             QPolygon qPolygon = convertOGRPolygonToQPolygon(ogrPolygon);
 
             CustomPolygonItem* polygonItem = new CustomPolygonItem(qPolygon);
+
+            connect(polygonItem, &CustomPolygonItem::polygonSelected, this, &SNICApp::handlePolygonSelected);
+
+            connect(polygonItem, &CustomPolygonItem::polygonDeselected, this, &SNICApp::handlePolygonDeselected);
 
             mPolygonItemMap[i] = polygonItem;
 
@@ -205,10 +209,7 @@ private:
             // 绘制多边形
             mGraphicsScene->addItem(polygonItem);
             
-            
         }
-
-
     }
 
     QPolygon convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygon) {
@@ -223,6 +224,14 @@ private:
         return polygon;
     }
 
+    void handlePolygonSelected(CustomPolygonItem* polygonItem) {
+        std::cout << "Polygon with label " << polygonItem->getLabel() << " is selected!" << std::endl;
+    }
+
+    void handlePolygonDeselected(CustomPolygonItem* polygonItem) {
+        std::cout << "Polygon with label " << polygonItem->getLabel() << " is deselected!" << std::endl;
+    }
+
 private:
     QPushButton* mButton;
     std::string mImageFileName;
@@ -230,7 +239,9 @@ private:
     QGraphicsScene* mGraphicsScene;
     GDALDataset* mDataset;
     SegmentationResult* mSegResult;
+    PolygonManager* mPolygonManager;
     std::map<int, CustomPolygonItem*> mPolygonItemMap;
+    
 };
 
 int main(int argc, char* argv[]) {

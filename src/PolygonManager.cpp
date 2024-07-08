@@ -1,177 +1,114 @@
+#include "PolygonManager.h"
 
-#include "SegmentationResult.cpp"
-#include <gdal_priv.h>
-#include <ogrsf_frmts.h>
-#include <QPolygon>
-#include <set>
+PolygonManager::PolygonManager() : mSegResult(nullptr)
+{
+}
 
-class PolygonManager {
-public:
-    PolygonManager() : mDriver(nullptr), mDataset(nullptr), mLayer(nullptr) {}
-    PolygonManager(const SegmentationResult& result) : mSegResult(result), mLayer(nullptr) {
-        GDALAllRegister();
-        OGRRegisterAll();
+PolygonManager::PolygonManager(SegmentationResult* segResult) :
+    mSegResult(segResult)
+{
+}
 
-        mDriver = GetGDALDriverManager()->GetDriverByName("Memory");
+PolygonManager::~PolygonManager()
+{
+}
 
-        mDataset = mDriver->Create("", 0, 0, 0, GDT_Unknown, nullptr);
+void PolygonManager::setSegmentationResult(SegmentationResult* segResult)
+{
+    mSegResult = segResult;
+}
 
-        createPolygons();
-    }
-    ~PolygonManager() {
-        if (mDataset != nullptr) {
-            GDALClose(mDataset);
-        }
-    }
 
-    void getPolygons() {
-        
+void PolygonManager::generatePolygons()
+{
+    if (mSegResult == nullptr) {
+        return;
     }
 
-    void printLayerContents() {
+    OGRRegisterAll();
 
-        // 获取图层定义
-        OGRFeatureDefn* layerDefn = mLayer->GetLayerDefn();
+    std::cout << "开始生成分割结果的多边形..." << std::endl;
 
-        // 遍历图层中的所有要素
-        OGRFeature* feature;
-        mLayer->ResetReading();
-        while ((feature = mLayer->GetNextFeature()) != nullptr) {
-            // 获取几何属性
-            OGRGeometry* geometry = feature->GetGeometryRef();
-            if (geometry != nullptr && wkbFlatten(geometry->getGeometryType()) == wkbPolygon) {
-                OGRPolygon* polygon = dynamic_cast<OGRPolygon*>(geometry);
-                // 打印多边形的顶点坐标
-                OGRLinearRing* ring = polygon->getExteriorRing();
-                for (int i = 0; i < ring->getNumPoints(); ++i) {
-                    OGRPoint point;
-                    ring->getPoint(i, &point);
-                    std::cout << "Point " << i << ": (" << point.getX() << ", " << point.getY() << ")" << std::endl;
-                }
+    const std::vector<std::vector<int>>& labels = mSegResult->getLabels();
+    int labelCount = mSegResult->getLabelCount();
+
+    int width = labels[0].size();
+    int height = labels.size();
+
+    // 将 labels 转换为 OpenCV 的 Mat 对象
+    cv::Mat labelsMat(height, width, CV_32SC1);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            labelsMat.at<int>(y, x) = labels[y][x];
+
+            int label = labels[y][x];
+            if (mBoundingBoxes.find(label) == mBoundingBoxes.end()) {
+                mBoundingBoxes[label] = cv::Rect(x, y, 1, 1);
             }
-
-            // 释放要素对象
-            OGRFeature::DestroyFeature(feature);
-        }
-    }
-
-private:
-    void createPolygons() {
-
-        if (mDataset == nullptr) {
-            std::cerr << "创建内存数据源失败！" << std::endl;
-            return;
-        }
-
-        // 创建图层
-        mLayer = mDataset->CreateLayer("labels", nullptr, wkbPolygon, nullptr);
-        if (mLayer == nullptr) {
-            std::cerr << "创建图层失败！" << std::endl;
-            GDALClose(mDataset);
-            return;
-        }
-
-        std::cout << "图层创建成功，mLayer 地址: " << mLayer << std::endl;
-
-        // 添加字段
-        OGRFieldDefn fieldDefn("Label", OFTInteger);
-        if (mLayer->CreateField(&fieldDefn) != OGRERR_NONE) {
-            std::cerr << "创建字段失败！" << std::endl;
-            GDALClose(mDataset);
-            return;
-        }
-
-        std::vector<std::vector<int>> labels = mSegResult.getLabels();
-
-        // 遍历mLabels生成要素
-        int rows = labels.size();
-        int cols = labels[0].size();
-        std::vector<std::vector<bool>> visited(rows, std::vector<bool>(cols, false));
-
-        std::cout << "遍历labels中..." << std::endl;
-
-        for (int i = 0; i < rows; ++i) {
-            for (int j = 0; j < cols; ++j) {
-                if (!visited[i][j]) {
-                    int label = labels[i][j];
-                    std::vector<std::pair<int, int>> region;
-                    std::set<std::pair<int, int>> boundary;
-                    std::vector<std::pair<int, int>> queue;
-                    queue.push_back(std::make_pair(i, j));
-                    visited[i][j] = true;
-
-                    while (!queue.empty()) {
-                        auto [x, y] = queue.back();
-                        queue.pop_back();
-                        region.push_back(std::make_pair(x, y));
-
-                        static const int dx[] = { -1, 1, 0, 0 };
-                        static const int dy[] = { 0, 0, -1, 1 };
-
-                        for (int k = 0; k < 4; ++k) {
-                            int nx = x + dx[k];
-                            int ny = y + dy[k];
-                            if (nx >= 0 && nx < rows && ny >= 0 && ny < cols) {
-                                if (!visited[nx][ny]) {
-                                    if (labels[nx][ny] == label) {
-                                        visited[nx][ny] = true;
-                                        queue.push_back(std::make_pair(nx, ny));
-                                    }
-                                    else {
-                                        boundary.insert(std::make_pair(x, y));
-                                    }
-                                }
-                            }
-                            else {
-                                boundary.insert(std::make_pair(x, y));
-                            }
-                            
-                        }
-                    }
-
-                    OGRFeature* feature = OGRFeature::CreateFeature(mLayer->GetLayerDefn());
-                    feature->SetField("label", label);
-
-                    OGRPolygon polygon;
-                    OGRLinearRing ring;
-
-                    // 提取边界顶点
-                    for (const auto& [x, y] : boundary) {
-                        ring.addPoint(y, x);
-                    }
-                    ring.closeRings();
-                    polygon.addRing(&ring);
-
-                    // 打印 ring 的相关信息
-                    int numPoints = ring.getNumPoints();
-                    std::cout << feature->GetFID() << " Ring 的顶点数: " << numPoints << std::endl;
-
-                    for (int i = 0; i < numPoints; ++i) {
-                        OGRPoint point;
-                        ring.getPoint(i, &point);
-                        std::cout << "顶点 " << i << ": (" << point.getX() << ", " << point.getY() << ")" << std::endl;
-                    }
-
-                    feature->SetGeometry(&polygon);
-                    if (mLayer->CreateFeature(feature) != OGRERR_NONE) {
-                        std::cerr << "创建要素失败！" << std::endl;
-                    }
-                    OGRFeature::DestroyFeature(feature);
-                }
+            else {
+                cv::Rect& rect = mBoundingBoxes[label];
+                rect.x = std::min(rect.x, x);
+                rect.y = std::min(rect.y, y);
+                rect.width = std::max(rect.width, x - rect.x + 1);
+                rect.height = std::max(rect.height, y - rect.y + 1);
             }
         }
-        std::cout << "多边形创建完成" << std::endl;
-
-        std::cout << "图层名称: " << mLayer->GetName() << std::endl;
-        std::cout << "图层要素数量: " << mLayer->GetFeatureCount(FALSE) << std::endl;
     }
-    
 
+    for (const auto& pair : mBoundingBoxes) {
+        std::cout << "标签 " << pair.first << " 的外包矩形: " << pair.second << std::endl;
+    }
 
-private:
-    GDALDriver* mDriver;
-    GDALDataset* mDataset;
-    SegmentationResult mSegResult;
-    OGRLayer* mLayer;
-    std::vector<QPolygon> mPolygons;
-};
+    // 将0值替换为一个非零的背景值
+    cv::Mat nonZeroLabelsMat = labelsMat.clone();
+    nonZeroLabelsMat.setTo(labelCount + 1, labelsMat == 0);
+
+    // 找到轮廓
+    std::vector<std::vector<cv::Point>> contours;
+    std::vector<cv::Vec4i> hierarchy;
+    cv::findContours(nonZeroLabelsMat, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_SIMPLE);
+
+    // 将轮廓转换为 OGRPolygon 对象
+    for (size_t i = 0; i < contours.size(); ++i) {
+        const std::vector<cv::Point>& contour = contours[i];
+        int label = nonZeroLabelsMat.at<int>(contour[0].y, contour[0].x);
+
+        // 将非零的背景值转换回0
+        if (label == labelCount + 1) {
+            label = 0;
+        }
+
+        if (mPolygons.find(label) == mPolygons.end()) {
+            mPolygons[label] = new OGRPolygon();
+        }
+
+        OGRLinearRing* ring = new OGRLinearRing();
+        for (const auto& point : contour) {
+            ring->addPoint(point.x, point.y);
+        }
+        ring->closeRings();
+
+        mPolygons[label]->addRingDirectly(ring);
+    }
+
+    std::cout << "生成多边形完成" << std::endl;
+
+    int index = 0;
+    for (auto& pair : mPolygons) {
+        if (index++ >= 10) {
+            break;
+        }
+        OGRLinearRing* ring = pair.second->getExteriorRing();
+        std::cout << pair.first << "号标签的多边形边界：" << std::endl;
+        std::cout << "共有" << ring->getNumPoints() << "个点：" << std::endl;
+        for (int i = 0; i < ring->getNumPoints(); ++i) {
+            OGRPoint point;
+            ring->getPoint(i, &point);
+            std::cout << point.getX() << "," << point.getY() << std::endl;
+        }
+    }
+}
+
+void PolygonManager::mergePolygons(std::vector<CustomPolygonItem>& polygonItems)
+{
+}
