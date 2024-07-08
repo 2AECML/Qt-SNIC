@@ -12,6 +12,7 @@ class CustomGraphicsView : public QGraphicsView {
 public:
     CustomGraphicsView(QWidget* parent = nullptr);
     double getScaleFactor() const;
+    void resetScale();
 
 protected:
     void wheelEvent(QWheelEvent* event) override;
@@ -26,6 +27,7 @@ private:
     void zoomIn();
     void zoomOut();
     double mScaleFactor;
+    double mMinScale;
     bool mPanning;
     int mPanStartX;
     int mPanStartY;

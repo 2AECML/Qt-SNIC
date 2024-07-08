@@ -4,16 +4,18 @@ PolygonManager::PolygonManager() : mGraphicsScene(nullptr), mSegResult(nullptr)
 {
 }
 
-PolygonManager::PolygonManager(QGraphicsScene* scene) :
+PolygonManager::PolygonManager(CustomGraphicsScene* scene) :
     mGraphicsScene(scene),
     mSegResult(nullptr)
 {
+    connect(mGraphicsScene, &CustomGraphicsScene::startMerge, this, &PolygonManager::handleStartMerge);
 }
 
-PolygonManager::PolygonManager(QGraphicsScene* scene, SegmentationResult* segResult) :
+PolygonManager::PolygonManager(CustomGraphicsScene* scene, SegmentationResult* segResult) :
     mGraphicsScene(scene),
     mSegResult(segResult)
 {
+    connect(mGraphicsScene, &CustomGraphicsScene::startMerge, this, &PolygonManager::handleStartMerge);
 }
 
 PolygonManager::~PolygonManager() {
@@ -22,7 +24,7 @@ PolygonManager::~PolygonManager() {
     }
 }
 
-void PolygonManager::setGraphicsScene(QGraphicsScene* scene) {
+void PolygonManager::setGraphicsScene(CustomGraphicsScene* scene) {
     mGraphicsScene = scene;
 }
 
@@ -93,19 +95,19 @@ void PolygonManager::generatePolygons() {
             break;
         }
         OGRLinearRing* ring = pair.second->getExteriorRing();
-        std::cout << pair.first << "号标签的多边形边界：" << std::endl;
-        std::cout << "共有" << ring->getNumPoints() << "个点：" << std::endl;
+        //std::cout << pair.first << "号标签的多边形边界：" << std::endl;
+        //std::cout << "共有" << ring->getNumPoints() << "个点：" << std::endl;
         for (int i = 0; i < ring->getNumPoints(); ++i) {
             OGRPoint point;
             ring->getPoint(i, &point);
-            std::cout << point.getX() << "," << point.getY() << std::endl;
+            //std::cout << point.getX() << "," << point.getY() << std::endl;
         }
     }
 }
 
 void PolygonManager::showAllPolygons() {
     for (int i = 0; i < mSegResult->getLabelCount(); ++i) {
-        std::cout << "正在绘制第" << i + 1 << "个多边形..." << std::endl;
+        //std::cout << "正在绘制第" << i + 1 << "个多边形..." << std::endl;
 
         // 获取第i个标签对应的OGRPolygon
         if (getPolygonByLabel(i) == nullptr) {
@@ -170,7 +172,7 @@ void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
     int endX = newBoundingBox.x + newBoundingBox.width;
     int endY = newBoundingBox.y + newBoundingBox.height;
 
-    std::cout << "多边形重新检测范围：" << cv::Rect(startX, startY, endX - startX, endY - startY) << std::endl;
+    //std::cout << "多边形重新检测范围：" << cv::Rect(startX, startY, endX - startX, endY - startY) << std::endl;
 
     // 生成合并后的多边形
     const std::vector<std::vector<int>>& labels = mSegResult->getLabels();
@@ -265,11 +267,27 @@ QPolygon PolygonManager::convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygo
 }
 
 void PolygonManager::handlePolygonSelected(CustomPolygonItem* polygonItem) {
-    std::cout << "Polygon with label " << polygonItem->getLabel() << " is selected!" << std::endl;
-    mergePolygons(std::vector<CustomPolygonItem*>{mPolygonItems[1], mPolygonItems[2], mPolygonItems[3]});
-
+    std::cout << "多边形" << polygonItem->getLabel() << "被选中" << std::endl;
+    mSelectedPolygonItems.push_back(polygonItem);
+    std::cout << "目前总共有" << mSelectedPolygonItems.size() << "个多边形被选中:";
+    for (auto& selectedItem : mSelectedPolygonItems) {
+        std::cout << selectedItem->getLabel() << ", ";
+    }
+    std::cout << std::endl;
 }
 
 void PolygonManager::handlePolygonDeselected(CustomPolygonItem* polygonItem) {
-    std::cout << "Polygon with label " << polygonItem->getLabel() << " is deselected!" << std::endl;
+    std::cout << "多边形 " << polygonItem->getLabel() << "被取消选中" << std::endl;
+    mSelectedPolygonItems.erase(std::remove(mSelectedPolygonItems.begin(), mSelectedPolygonItems.end(), polygonItem));
+    std::cout << "目前总共有" << mSelectedPolygonItems.size() << "个多边形被选中:";
+    for (auto& selectedItem : mSelectedPolygonItems) {
+        std::cout << selectedItem->getLabel() << ", ";
+    }
+    std::cout << std::endl;
 }
+
+void PolygonManager::handleStartMerge() {
+    mergePolygons(mSelectedPolygonItems);
+    mSelectedPolygonItems.clear();
+}
+

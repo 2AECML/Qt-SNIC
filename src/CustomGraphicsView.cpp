@@ -3,12 +3,18 @@
 CustomGraphicsView::CustomGraphicsView(QWidget* parent)
     : QGraphicsView(parent),
     mScaleFactor(1.0),
+    mMinScale(0.2),
     mPanning(false),
     mPanStartX(0),
     mPanStartY(0) {}
 
 double CustomGraphicsView::getScaleFactor() const {
     return mScaleFactor;
+}
+
+void CustomGraphicsView::resetScale() {
+    mScaleFactor = 1.0;
+    setTransform(QTransform::fromScale(mScaleFactor, mScaleFactor));
 }
 
 void CustomGraphicsView::wheelEvent(QWheelEvent* event) {
@@ -77,6 +83,10 @@ void CustomGraphicsView::zoomIn() {
 void CustomGraphicsView::zoomOut() {
     scale(0.8, 0.8);
     mScaleFactor *= 0.8;
+    if (mScaleFactor < mMinScale) {
+        mScaleFactor = mMinScale;
+        setTransform(QTransform::fromScale(mMinScale, mMinScale));
+    }
 }
 
 #include "CustomGraphicsView.moc"

@@ -13,6 +13,7 @@
 #include <QPolygon>
 #include <QPoint>
 #include "CustomGraphicsView.h"
+#include "CustomGraphicsScene.h"
 #include "SegmentationResult.h"
 #include "CustomPolygonItem.h"
 #include "PolygonManager.h"
@@ -69,20 +70,34 @@ private slots:
             executeSNIC();
             exportResult();
             showPolygons();
+
+            qDebug() << "mGraphicsView->sceneRect()" << mGraphicsView->sceneRect();
+            qDebug() << "mGraphicsScene->sceneRect()" << mGraphicsScene->sceneRect();
+
+            mGraphicsView->resetScale();
+            mGraphicsScene->setSceneRect(mGraphicsScene->itemsBoundingRect());
+            mGraphicsView->fitInView(mGraphicsScene->sceneRect(), Qt::KeepAspectRatio);
         }
     }
 
 private:
     void initUI() {
         setWindowTitle(QString::fromUtf16(u"SNIC分割"));
-        setFixedSize(800, 600);
+        resize(800, 600);
 
         mButton = new QPushButton("Load Image", this);
         mButton->setGeometry(10, 10, 100, 30);
         QObject::connect(mButton, &QPushButton::clicked, this, &SNICApp::loadImage);
 
         mGraphicsView = new CustomGraphicsView(this);
-        mGraphicsScene = new QGraphicsScene(this);
+        mGraphicsScene = new CustomGraphicsScene(this);
+
+        mGraphicsScene->setBackgroundBrush(QBrush(QColor(65, 105, 225)));
+        //qDebug() << mGraphicsScene->itemsBoundingRect();
+        //mGraphicsScene->setSceneRect(0, 0, 800, 600);
+        //qDebug() << mGraphicsScene->sceneRect();
+        mGraphicsView->setCacheMode(QGraphicsView::CacheBackground);
+        qDebug() << mGraphicsView->sceneRect();
         mGraphicsView->setScene(mGraphicsScene);
         mGraphicsView->setGeometry(10, 50, 780, 540);
 
@@ -107,9 +122,9 @@ private:
             if (mDataset != nullptr) {
                 segment();
                 std::cout << "分割结果标签数量: " << mSegResult->getLabelCount() << std::endl;
-                
+
             }
-            
+
         }
     }
 
@@ -202,12 +217,12 @@ private:
     QPushButton* mButton;
     std::string mImageFileName;
     CustomGraphicsView* mGraphicsView;
-    QGraphicsScene* mGraphicsScene;
+    CustomGraphicsScene* mGraphicsScene;
     GDALDataset* mDataset;
     SegmentationResult* mSegResult;
     PolygonManager* mPolygonManager;
     std::map<int, CustomPolygonItem*> mPolygonItemMap;
-    
+
 };
 
 int main(int argc, char* argv[]) {

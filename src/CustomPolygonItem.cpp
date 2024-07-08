@@ -23,7 +23,7 @@ void CustomPolygonItem::hoverEnterEvent(QGraphicsSceneHoverEvent* event) {
 void CustomPolygonItem::mousePressEvent(QGraphicsSceneMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
         QGraphicsPolygonItem::mousePressEvent(event);
-        std::cout << "Polygon clicked!" << std::endl;
+        //std::cout << "Polygon clicked!" << std::endl;
         mIsSelected = !mIsSelected;
 
         if (mIsSelected) {
@@ -42,12 +42,12 @@ void CustomPolygonItem::mousePressEvent(QGraphicsSceneMouseEvent* event) {
             this->setPen(mOriginalPen);
         }
 
-        
+
     }
     else if (event->button() == Qt::RightButton) {
         QGraphicsPolygonItem::mousePressEvent(event);
         std::cout << (int)event->pos().x() << " " << (int)event->pos().y() << std::endl;
-        
+
     }
 }
 

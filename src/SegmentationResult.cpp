@@ -84,7 +84,7 @@ void SegmentationResult::mergeLabels(std::vector<int>& labels) {
     for (int y = startY; y < endY; ++y) {
         for (int x = startX; x < endX; ++x) {
             if (std::find(labels.begin() + 1, labels.end(), mLabels[y][x]) != labels.end()) {
-                std::cout << "合并标签 " << mLabels[y][x] << " 到 " << targetLabel << std::endl;
+                //std::cout << "合并标签 " << mLabels[y][x] << " 到 " << targetLabel << std::endl;
                 mLabels[y][x] = targetLabel;
             }
         }
@@ -92,14 +92,14 @@ void SegmentationResult::mergeLabels(std::vector<int>& labels) {
 
     std::cout << "label合并完成" << std::endl;
 
-    for (int i = 0; i < labels.size(); ++i) {
-        std::cout << "删除标签 " << labels[i] << " 的外包矩形" << std::endl;
-        mBoundingBoxes.erase(labels[i]);
-    }
+    //for (int i = 0; i < labels.size(); ++i) {
+    //    std::cout << "删除标签 " << labels[i] << " 的外包矩形" << std::endl;
+    //    mBoundingBoxes.erase(labels[i]);
+    //}
 
     mBoundingBoxes[targetLabel] = cv::Rect(startX, startY, endX - startX, endY - startY);
 
-    std::cout << "合并后的外包矩形: " << mBoundingBoxes[targetLabel] << std::endl;
+    //std::cout << "合并后的外包矩形: " << mBoundingBoxes[targetLabel] << std::endl;
 }
 
 void SegmentationResult::calculateBoundingBoxes() {
@@ -122,7 +122,7 @@ void SegmentationResult::calculateBoundingBoxes() {
         }
     }
 
-    for (const auto& pair : mBoundingBoxes) {
-        std::cout << "标签 " << pair.first << " 的外包矩形: " << pair.second << std::endl;
-    }
+    //for (const auto& pair : mBoundingBoxes) {
+    //    std::cout << "标签 " << pair.first << " 的外包矩形: " << pair.second << std::endl;
+    //}
 }

@@ -4,7 +4,7 @@
 #include <ogrsf_frmts.h>
 #include <opencv2/opencv.hpp>
 #include <QObject>
-#include <QGraphicsScene>
+#include "CustomGraphicsScene.h"
 #include "SegmentationResult.h"
 #include "CustomPolygonItem.h"
 
@@ -14,13 +14,13 @@ class PolygonManager : public QObject{
 public:
 	PolygonManager();
 
-    PolygonManager(QGraphicsScene* scene);
+    PolygonManager(CustomGraphicsScene* scene);
 
-    PolygonManager(QGraphicsScene* scene, SegmentationResult* segResult);
+    PolygonManager(CustomGraphicsScene* scene, SegmentationResult* segResult);
 
 	~PolygonManager();
 
-    void setGraphicsScene(QGraphicsScene* scene);
+    void setGraphicsScene(CustomGraphicsScene* scene);
 
     void setSegmentationResult(SegmentationResult* segResult);
 
@@ -56,10 +56,13 @@ private:
     void handlePolygonSelected(CustomPolygonItem* polygonItem);
 
     void handlePolygonDeselected(CustomPolygonItem* polygonItem);
+
+    void handleStartMerge();
 	
 private:
-    QGraphicsScene* mGraphicsScene;
+    CustomGraphicsScene* mGraphicsScene;
     SegmentationResult* mSegResult;
 	std::map<int, OGRPolygon*> mOGRPolygons;
     std::map<int, CustomPolygonItem*> mPolygonItems;
+    std::vector<CustomPolygonItem*> mSelectedPolygonItems;
 };
