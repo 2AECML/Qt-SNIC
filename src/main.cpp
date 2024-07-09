@@ -193,6 +193,11 @@ private:
     }
 
     void showPolygons() {
+        // 删除之前生成的PolygonManager
+        if (mPolygonManager != nullptr) {
+            delete mPolygonManager;
+        }
+
         mPolygonManager = new PolygonManager(mGraphicsScene, mSegResult);
 
         mPolygonManager->generatePolygons();

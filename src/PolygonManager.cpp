@@ -1,4 +1,5 @@
 #include "PolygonManager.h"
+#include <QDebug>
 
 PolygonManager::PolygonManager() : mGraphicsScene(nullptr), mSegResult(nullptr)
 {
@@ -20,8 +21,15 @@ PolygonManager::PolygonManager(CustomGraphicsScene* scene, SegmentationResult* s
 
 PolygonManager::~PolygonManager() {
     for (auto& pair : mOGRPolygons) {
-        delete pair.second;
+        if (pair.second != nullptr) {
+            delete pair.second;
+        }
     }
+    //for (auto& pair : mPolygonItems) {
+    //    if (pair.second != nullptr) {
+    //        delete pair.second;
+    //    }
+    //}
 }
 
 void PolygonManager::setGraphicsScene(CustomGraphicsScene* scene) {
@@ -136,8 +144,7 @@ void PolygonManager::showAllPolygons() {
 
 }
 
-void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
-{
+void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems) {
     if (mSegResult == nullptr) {
         return;
     }
@@ -160,6 +167,8 @@ void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
             delete mOGRPolygons[label];
             mOGRPolygons.erase(label);
             mGraphicsScene->removeItem(mPolygonItems[label]);
+            //mPolygonItems.erase(label);
+            //delete polygonItems[label];
         }
     }
 
@@ -201,14 +210,14 @@ void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
         const std::vector<cv::Point>& contour = contours[i];
         int label = nonZeroLabelsMat.at<int>(contour[0].y, contour[0].x);
 
-        // 若找到的轮廓与所选多边形无关则跳过
-        if (std::find(mergeLabels.begin(), mergeLabels.end(), label) == mergeLabels.end()) {
-            continue;
-        }
-
         // 将非零的背景值转换回0
         if (label == labelCount + 1) {
             label = 0;
+        }
+
+        // 若找到的轮廓与所选多边形无关则跳过
+        if (std::find(mergeLabels.begin(), mergeLabels.end(), label) == mergeLabels.end()) {
+            continue;
         }
 
         if (mOGRPolygons.find(label) == mOGRPolygons.end()) {
@@ -225,7 +234,17 @@ void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
 
         QPolygon newPolygon = convertOGRPolygonToQPolygon(mOGRPolygons[label]);
         CustomPolygonItem* polygonItem = new CustomPolygonItem(newPolygon);
+        QObject::connect(polygonItem, &CustomPolygonItem::polygonSelected, this, &PolygonManager::handlePolygonSelected);
+        QObject::connect(polygonItem, &CustomPolygonItem::polygonDeselected, this, &PolygonManager::handlePolygonDeselected);
+        mPolygonItems[label] = polygonItem;
+        mPolygonItems[label]->setLabel(label);
+        mPolygonItems[label]->setPen(QPen(Qt::black, 1));
         mGraphicsScene->addItem(polygonItem);
+
+        // break的原因：
+        // 合成多边形完成，不需要再进行操作
+        // 若围成的区域形成一个环则会出现两个相同的轮廓，若不退出循环则会导致重复添加
+        break;
     }
 
     std::cout << "生成合并后的多边形完成" << std::endl;
@@ -268,6 +287,7 @@ QPolygon PolygonManager::convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygo
 
 void PolygonManager::handlePolygonSelected(CustomPolygonItem* polygonItem) {
     std::cout << "多边形" << polygonItem->getLabel() << "被选中" << std::endl;
+    //qDebug() << polygonItem->polygon();
     mSelectedPolygonItems.push_back(polygonItem);
     std::cout << "目前总共有" << mSelectedPolygonItems.size() << "个多边形被选中:";
     for (auto& selectedItem : mSelectedPolygonItems) {
@@ -287,6 +307,9 @@ void PolygonManager::handlePolygonDeselected(CustomPolygonItem* polygonItem) {
 }
 
 void PolygonManager::handleStartMerge() {
+    if (mSelectedPolygonItems.empty() || mSelectedPolygonItems.size() < 2) {
+        return;
+    }
     mergePolygons(mSelectedPolygonItems);
     mSelectedPolygonItems.clear();
 }

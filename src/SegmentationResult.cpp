@@ -103,22 +103,41 @@ void SegmentationResult::mergeLabels(std::vector<int>& labels) {
 }
 
 void SegmentationResult::calculateBoundingBoxes() {
+    std::cout << "计算每个label的外包矩形中..." << std::endl;
+
+    struct Box{
+        int minX;
+        int minY;
+        int maxX;
+        int maxY;
+    };
+
     int width = mLabels[0].size();
     int height = mLabels.size();
+
+    std::map<int, Box> boxes;
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             int label = mLabels[y][x];
             if (mBoundingBoxes.find(label) == mBoundingBoxes.end()) {
+                boxes[label].minX = width;
+                boxes[label].minY = height;
+                boxes[label].maxX = 0;
+                boxes[label].maxY = 0;
                 mBoundingBoxes[label] = cv::Rect(x, y, 1, 1);
             }
-            else {
-                cv::Rect& rect = mBoundingBoxes[label];
-                rect.x = std::min(rect.x, x);
-                rect.y = std::min(rect.y, y);
-                rect.width = std::max(rect.width, x - rect.x + 1);
-                rect.height = std::max(rect.height, y - rect.y + 1);
-            }
+
+            boxes[label].minX = std::min(boxes[label].minX, x);
+            boxes[label].minY = std::min(boxes[label].minY, y);
+            boxes[label].maxX = std::max(boxes[label].maxX, x);
+            boxes[label].maxY = std::max(boxes[label].maxY, y);
+        
+            cv::Rect& rect = mBoundingBoxes[label];
+            rect.x = boxes[label].minX;
+            rect.y = boxes[label].minY;
+            rect.width = boxes[label].maxX - boxes[label].minX + 1;
+            rect.height = boxes[label].maxY - boxes[label].minY + 1;
         }
     }
 
