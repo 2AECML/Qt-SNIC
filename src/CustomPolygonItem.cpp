@@ -1,7 +1,8 @@
 ﻿#include "CustomPolygonItem.h"
 
-CustomPolygonItem::CustomPolygonItem(const QPolygon& polygon, QGraphicsItem* parent) :
-    QGraphicsPolygonItem(polygon, parent) {
+CustomPolygonItem::CustomPolygonItem(const QPolygon& polygon, QGraphicsItem* parent) 
+    : mLabel(0)
+    , QGraphicsPolygonItem(polygon, parent) {
     mOriginalPen = QPen(Qt::black, 1);
     setAcceptHoverEvents(true);
 }
@@ -47,8 +48,5 @@ void CustomPolygonItem::mousePressEvent(QGraphicsSceneMouseEvent* event) {
     else if (event->button() == Qt::RightButton) {
         QGraphicsPolygonItem::mousePressEvent(event);
         std::cout << (int)event->pos().x() << " " << (int)event->pos().y() << std::endl;
-
     }
 }
-
-#include "CustomPolygonItem.moc"

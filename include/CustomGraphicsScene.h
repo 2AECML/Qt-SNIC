@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CUSTOMGRAPHICSSCENE_H
+#define CUSTOMGRAPHICSSCENE_H
 
 #include <QGraphicsScene>
 #include <QGraphicsSceneMouseEvent>
@@ -16,3 +17,5 @@ signals:
 protected:
 	void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
 };
+
+#endif // CUSTOMGRAPHICSSCENE_H

@@ -1,3 +1,5 @@
+#ifndef POLYGONMANAGER_H
+#define POLYGONMANAGER_H
 
 #include <vector>
 #include <map>
@@ -66,3 +68,5 @@ private:
     std::map<int, CustomPolygonItem*> mPolygonItems;
     std::vector<CustomPolygonItem*> mSelectedPolygonItems;
 };
+
+#endif // POLYGONMANAGER_H

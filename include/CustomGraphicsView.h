@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CUSTOMGRAPHICSVIEW_H
+#define CUSTOMGRAPHICSVIEW_H
 
 #include <QGraphicsView>
 #include <QMouseEvent>
@@ -32,3 +33,5 @@ private:
     int mPanStartX;
     int mPanStartY;
 };
+
+#endif // CUSTOMGRAPHICSVIEW_H

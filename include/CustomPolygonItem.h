@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CUSTOMPOLYGONITEM_H
+#define CUSTOMPOLYGONITEM_H
 
 #include <QGraphicsPolygonItem>
 #include <QGraphicsSceneMouseEvent>
@@ -28,3 +29,4 @@ private:
     bool mIsSelected = false;
 };
 
+#endif // CUSTOMPOLYGONITEM_H

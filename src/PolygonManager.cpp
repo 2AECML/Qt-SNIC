@@ -1,5 +1,6 @@
 #include "PolygonManager.h"
 #include <QDebug>
+#include <QPainterPath>
 
 PolygonManager::PolygonManager() : mGraphicsScene(nullptr), mSegResult(nullptr)
 {
@@ -146,6 +147,10 @@ void PolygonManager::showAllPolygons() {
 
 void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems) {
     if (mSegResult == nullptr) {
+        return;
+    }
+
+    if (polygonItems.size() < 2) {
         return;
     }
 

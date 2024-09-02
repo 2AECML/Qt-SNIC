@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SEGMENTATIONRESULT_H
+#define SEGMENTATIONRESULT_H
 
 #include <vector>
 #include <fstream>
@@ -29,4 +30,7 @@ private:
     int mLabelCount;
     std::vector<std::vector<int>> mLabels;
     std::map<int, cv::Rect> mBoundingBoxes;
+    
 };
+
+#endif // SEGMENTATIONRESULT_H

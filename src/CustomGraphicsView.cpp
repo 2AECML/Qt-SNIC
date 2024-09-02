@@ -6,7 +6,10 @@ CustomGraphicsView::CustomGraphicsView(QWidget* parent)
     mMinScale(0.2),
     mPanning(false),
     mPanStartX(0),
-    mPanStartY(0) {}
+    mPanStartY(0) {
+    
+    setBackgroundBrush(QBrush(QColor(255, 255, 255)));
+}
 
 double CustomGraphicsView::getScaleFactor() const {
     return mScaleFactor;
@@ -35,15 +38,6 @@ void CustomGraphicsView::mousePressEvent(QMouseEvent* event) {
         setCursor(Qt::ClosedHandCursor);
         event->accept();
     }
-    //else if (event->button() == Qt::LeftButton) {
-    //    // 获取点击的屏幕坐标
-    //    QPointF screenPos = event->pos();
-    //    // 将屏幕坐标转换为场景坐标
-    //    QPointF scenePos = mapToScene(screenPos.toPoint());
-    //    // 发射信号，传递场景坐标
-    //    emit mousePressed(scenePos);
-    //    event->accept();
-    //}
     else {
         QGraphicsView::mousePressEvent(event);
     }
@@ -88,5 +82,3 @@ void CustomGraphicsView::zoomOut() {
         setTransform(QTransform::fromScale(mMinScale, mMinScale));
     }
 }
-
-#include "CustomGraphicsView.moc"
