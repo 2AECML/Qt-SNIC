@@ -1,23 +1,26 @@
 #include "PolygonManager.h"
+#include "CustomThread.h"
 #include <QDebug>
 #include <QPainterPath>
 
-PolygonManager::PolygonManager() : mGraphicsScene(nullptr), mSegResult(nullptr)
-{
+PolygonManager::PolygonManager() : mGraphicsScene(nullptr), mSegResult(nullptr) {
 }
 
-PolygonManager::PolygonManager(CustomGraphicsScene* scene) :
-    mGraphicsScene(scene),
-    mSegResult(nullptr)
-{
-    connect(mGraphicsScene, &CustomGraphicsScene::startMerge, this, &PolygonManager::handleStartMerge);
-}
+PolygonManager::PolygonManager(CustomGraphicsScene* scene, SegmentationResult* segResult) 
+    : mGraphicsScene(scene)
+    , mSegResult(segResult) {
 
-PolygonManager::PolygonManager(CustomGraphicsScene* scene, SegmentationResult* segResult) :
-    mGraphicsScene(scene),
-    mSegResult(segResult)
-{
     connect(mGraphicsScene, &CustomGraphicsScene::startMerge, this, &PolygonManager::handleStartMerge);
+    connect(mGraphicsScene, &CustomGraphicsScene::startMerge, this, [this]() {
+        auto task = [this]() {
+            handleStartMerge();
+        };
+
+        // 创建并启动自定义线程
+        CustomThread* processingThread = new CustomThread(task, this);
+
+        processingThread->start();
+    });
 }
 
 PolygonManager::~PolygonManager() {
@@ -172,8 +175,9 @@ void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
             delete mOGRPolygons[label];
             mOGRPolygons.erase(label);
             mGraphicsScene->removeItem(mPolygonItems[label]);
-            //mPolygonItems.erase(label);
+            
             //delete polygonItems[label];
+            //mPolygonItems.erase(label);
         }
     }
 
@@ -243,7 +247,6 @@ void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
         QObject::connect(polygonItem, &CustomPolygonItem::polygonDeselected, this, &PolygonManager::handlePolygonDeselected);
         mPolygonItems[label] = polygonItem;
         mPolygonItems[label]->setLabel(label);
-        mPolygonItems[label]->setPen(QPen(Qt::black, 1));
         mGraphicsScene->addItem(polygonItem);
 
         // break的原因：
@@ -256,26 +259,22 @@ void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
 
 }
 
-std::vector<OGRPoint> PolygonManager::simplifyPolygon(const std::vector<OGRPoint>& points, double tolerance)
-{
-    std::vector<OGRPoint> simplifiedPoints;
-    if (points.empty()) {
-        return simplifiedPoints;
+void PolygonManager::setDefaultBorderColor(QColor color) {
+    for (auto& pair : mPolygonItems) {
+        pair.second->setDefaultColor(color);
     }
+}
 
-    simplifiedPoints.push_back(points[0]);
-    for (size_t i = 1; i < points.size(); ++i) {
-        if (distance(simplifiedPoints.back(), points[i]) > tolerance) {
-            simplifiedPoints.push_back(points[i]);
-        }
+void PolygonManager::setHoveredBorderColor(QColor color) {
+    for (auto& pair : mPolygonItems) {
+        pair.second->setHoveredColor(color);
     }
+}
 
-    // 确保最后一个点和第一个点之间的距离也大于容忍度
-    if (distance(simplifiedPoints.back(), simplifiedPoints.front()) <= tolerance) {
-        simplifiedPoints.pop_back();
+void PolygonManager::setSelectedBorderColor(QColor color) {
+    for (auto& pair : mPolygonItems) {
+        pair.second->setSelectedColor(color);
     }
-
-    return simplifiedPoints;
 }
 
 QPolygon PolygonManager::convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygon) {
@@ -318,4 +317,3 @@ void PolygonManager::handleStartMerge() {
     mergePolygons(mSelectedPolygonItems);
     mSelectedPolygonItems.clear();
 }
-

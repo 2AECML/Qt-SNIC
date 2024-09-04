@@ -5,13 +5,16 @@
 #include "CustomGraphicsScene.h"
 #include "SegmentationResult.h"
 #include "PolygonManager.h"
+#include "CustomThread.h"
 #include <QMainWindow>
 #include <QPushButton>
 #include <QGraphicsScene>
 #include <QGraphicsView>
+#include <QProgressBar>
 #include <string>
 #include <map>
 #include <memory>
+#include <list>
 
 struct GDALDatasetDeleter {
     void operator()(GDALDataset* dataset) const {
@@ -34,25 +37,36 @@ public:
 
 private slots:
     void loadImage();
+    void exportResult();
+    void segmentImage();
+    void changeDefaultBorderColor();
+    void changeHoveredBorderColor();
+    void changeSelectedBorderColor();
 
 private:
     void initUI();
     void showImage();
     void executeSNIC();
-    void exportResult();
     void getDataSet();
     void showPolygons();
-    QPolygon convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygon);
 
 private:
     QPushButton* mButton;
     std::string mImageFileName;
     CustomGraphicsView* mGraphicsView;
     CustomGraphicsScene* mGraphicsScene;
+    QProgressBar* mProgressBar;
+
     std::unique_ptr<GDALDataset, GDALDatasetDeleter> mDataset;
     std::unique_ptr<SegmentationResult> mSegResult;
     std::unique_ptr<PolygonManager> mPolygonManager;
-    std::map<int, CustomPolygonItem*> mPolygonItemMap;
+
+    std::list<std::unique_ptr<CustomThread>> mProcessingThreadList;
+
+signals:
+    void doingGetDataset();
+    void doingSegment();
+    void doingInitResult();
 };
 
 #endif // MAINWINDOW_H

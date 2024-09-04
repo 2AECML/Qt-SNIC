@@ -1,57 +1,55 @@
 #ifndef POLYGONMANAGER_H
 #define POLYGONMANAGER_H
 
+#include "CustomGraphicsScene.h"
+#include "SegmentationResult.h"
+#include "CustomPolygonItem.h"
 #include <vector>
 #include <map>
 #include <ogrsf_frmts.h>
 #include <opencv2/opencv.hpp>
 #include <QObject>
-#include "CustomGraphicsScene.h"
-#include "SegmentationResult.h"
-#include "CustomPolygonItem.h"
+#include <memory>
 
-class PolygonManager : public QObject{
+class PolygonManager : public QObject {
     Q_OBJECT
 
 public:
-	PolygonManager();
-
-    PolygonManager(CustomGraphicsScene* scene);
+    PolygonManager();
 
     PolygonManager(CustomGraphicsScene* scene, SegmentationResult* segResult);
 
-	~PolygonManager();
+    ~PolygonManager();
 
     void setGraphicsScene(CustomGraphicsScene* scene);
 
     void setSegmentationResult(SegmentationResult* segResult);
 
-	void generatePolygons();
+    void generatePolygons();
 
     void showAllPolygons();
 
     void mergePolygons(std::vector<CustomPolygonItem*> polygonItems);
 
-	inline int getPolygonCount() const {
-		return mOGRPolygons.size();
-	}
+    void setDefaultBorderColor(QColor color);
 
-	inline const std::map<int, OGRPolygon*>& getPolygons() {
-		return mOGRPolygons;
-	}
+    void setHoveredBorderColor(QColor color);
 
-	inline const OGRPolygon* getPolygonByLabel(int label) {
-		return mOGRPolygons[label];
-	}
+    void setSelectedBorderColor(QColor color);
 
-private:
-    // 计算两点之间的距离
-    inline double distance(const OGRPoint& p1, const OGRPoint& p2) {
-        return std::sqrt(std::pow(p2.getX() - p1.getX(), 2) + std::pow(p2.getY() - p1.getY(), 2));
+    inline int getPolygonCount() const {
+        return mOGRPolygons.size();
     }
 
-    // 临近点简化算法
-    std::vector<OGRPoint> simplifyPolygon(const std::vector<OGRPoint>& points, double tolerance);
+    inline const std::map<int, OGRPolygon*>& getPolygons() {
+        return mOGRPolygons;
+    }
+
+    inline const OGRPolygon* getPolygonByLabel(int label) {
+        return mOGRPolygons[label];
+    }
+
+private:
 
     QPolygon convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygon);
 
@@ -60,11 +58,12 @@ private:
     void handlePolygonDeselected(CustomPolygonItem* polygonItem);
 
     void handleStartMerge();
-	
+
 private:
     CustomGraphicsScene* mGraphicsScene;
     SegmentationResult* mSegResult;
-	std::map<int, OGRPolygon*> mOGRPolygons;
+    
+    std::map<int, OGRPolygon*> mOGRPolygons;
     std::map<int, CustomPolygonItem*> mPolygonItems;
     std::vector<CustomPolygonItem*> mSelectedPolygonItems;
 };

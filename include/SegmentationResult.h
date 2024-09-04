@@ -22,6 +22,7 @@ public:
     const std::map<int, cv::Rect>& getBoundingBoxes();
     const cv::Rect& getBoundingBoxByLabel(int label);
     void mergeLabels(std::vector<int>& labels);
+    void adjustLabels();
 
 private:
     void calculateBoundingBoxes();
@@ -30,7 +31,6 @@ private:
     int mLabelCount;
     std::vector<std::vector<int>> mLabels;
     std::map<int, cv::Rect> mBoundingBoxes;
-    
 };
 
 #endif // SEGMENTATIONRESULT_H

@@ -1,21 +1,35 @@
 #include "MainWindow.h"
-
 #include <QFileDialog>
 #include <QDebug>
 #include <gdal_priv.h>
 #include <QMenuBar>
 #include <QApplication>
+#include <QStatusBar>
+#include <QTimer>
+#include <QTextCodeC>
+#include <QColorDialog>
 
 MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent), mDataset(nullptr), mSegResult(nullptr), mPolygonManager(nullptr) {
+    : QMainWindow(parent)
+    , mDataset(nullptr)
+    , mSegResult(nullptr)
+    , mPolygonManager(nullptr) {
+
     initUI();
 }
 
 MainWindow::~MainWindow() {
-    
+    for (auto& thread : mProcessingThreadList) {
+        if (thread) {
+            thread->quit(); // 请求线程停止
+            thread->wait(); // 等待线程结束
+        }
+    }
+    mProcessingThreadList.clear(); // 清空列表，unique_ptr 会自动删除线程对象
 }
 
 void MainWindow::initUI() {
+
     setWindowTitle(QString::fromUtf16(u"Segmentation"));
     resize(1024, 768); 
 
@@ -32,26 +46,41 @@ void MainWindow::initUI() {
     setMenuBar(menuBar);
 
     QMenu* fileMenu = new QMenu("File", this);
-    QAction* openFileAction = new QAction("Open File", this);
-    QAction* exportResultAction = new QAction("Export Result", this);
+    QAction* openFileAction = new QAction("Open Image", this);
+    QAction* exportResultAction = new QAction("Save Result", this);
     QAction* quitAction = new QAction("Quit", this);
-
     connect(openFileAction, &QAction::triggered, this, &MainWindow::loadImage);
     connect(exportResultAction, &QAction::triggered, this, &MainWindow::exportResult);
     connect(quitAction, &QAction::triggered, QApplication::instance(), &QApplication::quit);
-
     fileMenu->addAction(openFileAction);
     fileMenu->addAction(exportResultAction);
     fileMenu->addSeparator();
     fileMenu->addAction(quitAction);
 
+    QMenu* segmentMenu = new QMenu("Segmentation", this);
+    QAction* segmentAction = new QAction("Start", this);
+    connect(segmentAction, &QAction::triggered, this, &MainWindow::segmentImage);
+    segmentMenu->addAction(segmentAction);
+
     QMenu* editMenu = new QMenu("Edit", this);
-    QAction* aboutAction = new QAction("About", this);
-    //connect(aboutAction, &QAction::triggered, this, &MainWindow::about);
-    editMenu->addAction(aboutAction);
+    QAction* setDefaultColorAction = new QAction("Set Default Border Color", this);
+    QAction* setSelectedColorAction = new QAction("Set Selected Border Color", this);
+    QAction* setHoveredColorAction = new QAction("Set Hovered Border Color", this);
+    connect(setDefaultColorAction, &QAction::triggered, this, &MainWindow::changeDefaultBorderColor);
+    connect(setSelectedColorAction, &QAction::triggered, this, &MainWindow::changeSelectedBorderColor);
+    connect(setHoveredColorAction, &QAction::triggered, this, &MainWindow::changeHoveredBorderColor);
+    editMenu->addAction(setDefaultColorAction);
+    editMenu->addAction(setSelectedColorAction);
+    editMenu->addAction(setHoveredColorAction);
 
     menuBar->addMenu(fileMenu);
+    menuBar->addMenu(segmentMenu);
     menuBar->addMenu(editMenu);
+
+    mProgressBar = new QProgressBar(this);
+    statusBar()->addWidget(mProgressBar);
+    mProgressBar->setVisible(false);
+    mProgressBar->setMaximum(100);
 
     setStyleSheet(R"(/* 设置整个应用程序的背景颜色和字体 */
                     QWidget {
@@ -135,12 +164,92 @@ void MainWindow::initUI() {
 
                     /* 状态栏 */
                     QStatusBar {
-                        background-color: #003366;
                         color: #ffffff;
                         height: 30px; /* 设置状态栏的高度 */
                         padding: 0;   /* 清除内边距 */
                     }
-                    )");
+
+                    QProgressBar {
+                        text-align:center;
+                        background-color:#DDDDDD;
+                        border: 0px solid #DDDDDD;
+                        border-radius:5px;
+                    }
+                    
+                    QProgressBar::chunk {
+                        background-color:#05B8CC; 
+                        border-radius: 5px;
+                    }
+
+                    QStatusBar {
+                        color: #ffffff;
+                        height: 30px; /* 设置状态栏的高度 */
+                        padding: 0;   /* 清除内边距 */
+                        border: none; /* 禁止右下角拉伸 */
+                    }
+
+                    QScrollBar:vertical {
+                        border: 2px solid #cccccc;
+                        background: #f5f5f5;
+                        width: 12px;
+                        border-radius: 6px;
+                    }
+
+                    QScrollBar::handle:vertical {
+                        background: #0055cc;
+                        min-height: 20px;
+                        border-radius: 6px;
+                    }
+
+                    QScrollBar::add-line:vertical {
+                        border: 2px solid #cccccc;
+                        background: #f5f5f5;
+                        height: 20px;
+                        border-radius: 6px;
+                        subcontrol-position: bottom;
+                        subcontrol-origin: margin;
+                    }
+
+                    QScrollBar::sub-line:vertical {
+                        border: 2px solid #cccccc;
+                        background: #f5f5f5;
+                        height: 20px;
+                        border-radius: 6px;
+                        subcontrol-position: top;
+                        subcontrol-origin: margin;
+                    }
+
+                    QScrollBar:horizontal {
+                        border: 2px solid #cccccc;
+                        background: #f5f5f5;
+                        height: 12px;
+                        border-radius: 6px;
+                    }
+
+                    QScrollBar::handle:horizontal {
+                        background: #0055cc;
+                        min-width: 20px;
+                        border-radius: 6px;
+                    }
+
+                    QScrollBar::add-line:horizontal {
+                        border: 2px solid #cccccc;
+                        background: #f5f5f5;
+                        width: 20px;
+                        border-radius: 6px;
+                        subcontrol-position: right;
+                        subcontrol-origin: margin;
+                    }
+
+                    QScrollBar::sub-line:horizontal {
+                        border: 2px solid #cccccc;
+                        background: #f5f5f5;
+                        width: 20px;
+                        border-radius: 6px;
+                        subcontrol-position: left;
+                        subcontrol-origin: margin;
+                    }
+    )");
 }
 
 void MainWindow::loadImage() {
@@ -150,16 +259,10 @@ void MainWindow::loadImage() {
         mGraphicsScene->clear();
         mImageFileName = fileName.toStdString();
         showImage();
-        executeSNIC();
-        exportResult();
-        showPolygons();
-
-        qDebug() << "mGraphicsView->sceneRect()" << mGraphicsView->sceneRect();
-        qDebug() << "mGraphicsScene->sceneRect()" << mGraphicsScene->sceneRect();
-
         mGraphicsView->resetScale();
         mGraphicsScene->setSceneRect(mGraphicsScene->itemsBoundingRect());
         mGraphicsView->fitInView(mGraphicsScene->sceneRect(), Qt::KeepAspectRatio);
+        mPolygonManager.reset();
     }
 }
 
@@ -174,6 +277,8 @@ void MainWindow::executeSNIC() {
         qDebug() << "The split could not be completed because the image path is invalid";
         return;
     }
+
+    emit doingGetDataset();
 
     getDataSet();
 
@@ -196,6 +301,8 @@ void MainWindow::executeSNIC() {
         }
     }
 
+    emit doingSegment();
+
     int numsuperpixels = 500; // 超像素数量
     double compactness = 20.0; // 紧凑度
     bool doRGBtoLAB = true; // 是否进行RGB到LAB的转换
@@ -208,6 +315,8 @@ void MainWindow::executeSNIC() {
 
     qDebug() << "图像分割完成";
 
+    emit doingInitResult();
+
     mSegResult.reset(new SegmentationResult(plabels, pnumlabels, w, h));
 
     delete[] pinp;
@@ -216,7 +325,78 @@ void MainWindow::executeSNIC() {
 }
 
 void MainWindow::exportResult() {
-    mSegResult->exportToCSV();
+    auto task = [this]() {
+        mSegResult->exportToCSV();
+    };
+
+    // 创建并启动自定义线程
+    mProcessingThreadList.emplace_back(std::make_unique<CustomThread>(task, this));
+
+    auto& processingThread = mProcessingThreadList.back();
+
+    connect(processingThread.get(), &CustomThread::finished, this, [this]() {
+        
+    });
+    processingThread->start();
+}
+
+void MainWindow::segmentImage() {
+    mProgressBar->setVisible(true); // 显示进度条
+    mProgressBar->setValue(0); // 初始化进度为0
+
+    auto task = [this]() {
+        executeSNIC();
+    };
+
+    // 创建并启动自定义线程
+    mProcessingThreadList.emplace_back(std::make_unique<CustomThread>(task, this));
+
+    auto& processingThread = mProcessingThreadList.back();
+
+    connect(processingThread.get(), &CustomThread::finished, this, [this]() {
+        showPolygons();
+
+        mProgressBar->setValue(100); // 更新进度条的值
+        // 使用 QTimer 延迟两秒隐藏进度条
+        QTimer::singleShot(2000, [this]() {
+            mProgressBar->setVisible(false);
+        });
+    });
+
+    connect(this, &MainWindow::doingGetDataset, this, [this]() {
+        mProgressBar->setValue(10); // 更新进度条的值
+    });
+
+    connect(this, &MainWindow::doingSegment, this, [this]() {
+        mProgressBar->setValue(30); // 更新进度条的值
+    });
+
+    connect(this, &MainWindow::doingInitResult, this, [this]() {
+        mProgressBar->setValue(60); // 更新进度条的值
+    });
+    
+    processingThread->start();
+}
+
+void MainWindow::changeDefaultBorderColor() {
+    QColor color = QColorDialog::getColor(Qt::black, this, "Set Default Border Color");
+    if (color.isValid()) {
+        mPolygonManager->setDefaultBorderColor(color);
+    }
+}
+
+void MainWindow::changeHoveredBorderColor() {
+    QColor color = QColorDialog::getColor(Qt::black, this, "Set Hovered Border Color");
+    if (color.isValid()) {
+        mPolygonManager->setHoveredBorderColor(color);
+    }
+}
+
+void MainWindow::changeSelectedBorderColor() {
+    QColor color = QColorDialog::getColor(Qt::black, this, "Set Selected Border Color");
+    if (color.isValid()) {
+        mPolygonManager->setSelectedBorderColor(color);
+    }
 }
 
 void MainWindow::getDataSet() {
@@ -248,14 +428,3 @@ void MainWindow::showPolygons() {
     mPolygonManager->showAllPolygons();
 }
 
-QPolygon MainWindow::convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygon) {
-    QPolygon polygon;
-    const OGRLinearRing* exteriorRing = ogrPolygon->getExteriorRing();
-    int pointCount = exteriorRing->getNumPoints();
-    for (int i = 0; i < pointCount; ++i) {
-        OGRPoint point;
-        exteriorRing->getPoint(i, &point);
-        polygon << QPoint(point.getX(), point.getY());
-    }
-    return polygon;
-}

@@ -8,7 +8,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-# 如果支持，请为 MSVC 编译器启用热重载。
+
 if (POLICY CMP0141)
   cmake_policy(SET CMP0141 NEW)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
@@ -35,6 +35,8 @@ add_executable (Segmentation
 	${INCLUDE_DIR}/CustomGraphicsScene.h
 	${INCLUDE_DIR}/CustomPolygonItem.h
 	${INCLUDE_DIR}/PolygonManager.h
+	"include/CustomThread.h"
+	${INCLUDE_DIR}/MainWindow.h
 	${SOURCE_DIR}/main.cpp
 	${SOURCE_DIR}/snic.c
 	${SOURCE_DIR}/SegmentationResult.cpp
@@ -42,7 +44,8 @@ add_executable (Segmentation
 	${SOURCE_DIR}/CustomGraphicsScene.cpp
 	${SOURCE_DIR}/CustomPolygonItem.cpp
 	${SOURCE_DIR}/PolygonManager.cpp
-	${SOURCE_DIR}/WorkerThread.cpp "include/MainWindow.h" "src/MainWindow.cpp")
+	${SOURCE_DIR}/MainWindow.cpp
+	"src/CustomThread.cpp")
 
 # 寻找 Qt 库
 find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
@@ -71,20 +74,17 @@ message(STATUS "OpenCV libraries: ${OpenCV_LIBRARIES}")
 include_directories(${Qt5Core_INCLUDE_DIRS} 
 	${Qt5Widgets_INCLUDE_DIRS} 
 	${OpenCV_INCLUDE_DIRS} 
-	${GDAL_INCLUDE_DIR})
+	${GDAL_INCLUDE_DIR}
+	${BOOST_INCLUDE_DIR})
 
 # 链接库
 target_link_libraries(Segmentation ${Qt5Core_LIBRARIES} 
 	${Qt5Widgets_LIBRARIES} 
 	${OpenCV_LIBRARIES} 
-	${GDAL_LIBRARIES})
+	${GDAL_LIBRARIES}
+	${BOOST_LIBRARIES})
 
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET Segmentation PROPERTY CXX_STANDARD 20)
+  set_property(TARGET Segmentation PROPERTY CXX_STANDARD 17)
 endif()
-
-# TODO: 如有需要，请添加测试并安装目标。
-
-message(STATUS "OpenCV_LIBRARIES: ${OpenCV_LIBRARIES}")
-message(STATUS "GDAL_LIBRARIES: ${GDAL_LIBRARIES}")

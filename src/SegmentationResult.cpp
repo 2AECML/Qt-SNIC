@@ -1,8 +1,7 @@
 #include "SegmentationResult.h"
 
-SegmentationResult::SegmentationResult() :
-    mLabelCount(0),
-    mLabels() {
+SegmentationResult::SegmentationResult() 
+    : mLabelCount(0) {
 }
 
 SegmentationResult::SegmentationResult(int* plabels, int* pnumlabels, int width, int height) {
@@ -20,6 +19,12 @@ SegmentationResult::~SegmentationResult() {
 }
 
 void SegmentationResult::exportToCSV() {
+    if (mLabels.empty()) {
+        return;
+    }
+
+    adjustLabels();
+
     std::ofstream file("分割结果.csv");
 
     if (!file.is_open()) {
@@ -67,6 +72,8 @@ const cv::Rect& SegmentationResult::getBoundingBoxByLabel(int label) {
 void SegmentationResult::mergeLabels(std::vector<int>& labels) {
     int targetLabel = labels[0];
 
+    mLabelCount = mLabelCount - labels.size() + 1;
+
     int startX = mLabels[0].size();
     int startY = mLabels.size();
     int endX = 0;
@@ -92,6 +99,8 @@ void SegmentationResult::mergeLabels(std::vector<int>& labels) {
 
     std::cout << "label合并完成" << std::endl;
 
+    
+
     //for (int i = 0; i < labels.size(); ++i) {
     //    std::cout << "删除标签 " << labels[i] << " 的外包矩形" << std::endl;
     //    mBoundingBoxes.erase(labels[i]);
@@ -102,7 +111,33 @@ void SegmentationResult::mergeLabels(std::vector<int>& labels) {
     //std::cout << "合并后的外包矩形: " << mBoundingBoxes[targetLabel] << std::endl;
 }
 
+void SegmentationResult::adjustLabels() {
+    std::map<int, int> labelMap;
+
+    int width = mLabels[0].size();
+    int height = mLabels.size();
+
+    int newLabel = 0;
+    for (int i = 0; i < height; ++i) {
+        for (int j = 0; j < width; ++j) {
+
+            int& curLabel = mLabels[i][j];
+
+            if (labelMap.find(curLabel) == labelMap.end()) {
+                labelMap[curLabel] = newLabel;
+                ++newLabel;
+            }
+
+            if (curLabel != labelMap[curLabel]) {
+                curLabel = labelMap[curLabel];
+            }
+
+        }
+    }
+}
+
 void SegmentationResult::calculateBoundingBoxes() {
+
     std::cout << "计算每个label的外包矩形中..." << std::endl;
 
     struct Box{

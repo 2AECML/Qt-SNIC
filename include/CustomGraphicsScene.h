@@ -1,6 +1,7 @@
 #ifndef CUSTOMGRAPHICSSCENE_H
 #define CUSTOMGRAPHICSSCENE_H
 
+#include "CustomPolygonItem.h"
 #include <QGraphicsScene>
 #include <QGraphicsSceneMouseEvent>
 
@@ -16,6 +17,10 @@ signals:
 
 protected:
 	void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
+	void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
+
+private:
+	CustomPolygonItem* getBottomPolygonItemAt(const QPointF& pos);
 };
 
 #endif // CUSTOMGRAPHICSSCENE_H

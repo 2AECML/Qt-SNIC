@@ -14,6 +14,16 @@ public:
     CustomPolygonItem(const QPolygon& polygon, QGraphicsItem* parent = nullptr);
     void setLabel(int label);
     int getLabel();
+    void setSelected(bool isSelected = true);
+    void setHovered(bool isHovered = true);
+    bool isSelected() const;
+    bool isHovered() const;
+    void setDefaultColor(const QColor& color);
+    void setHoveredColor(const QColor& color);
+    void setSelectedColor(const QColor& color);
+    QPen getDefaultPen() const;
+    QPen getHoveredPen() const;
+    QPen getSelectedPen() const;
 
 signals:
     void polygonSelected(CustomPolygonItem* polygon);
@@ -21,12 +31,15 @@ signals:
 
 protected:
     void hoverEnterEvent(QGraphicsSceneHoverEvent* event) override;
-    void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
+    void hoverLeaveEvent(QGraphicsSceneHoverEvent* event) override;
 
 private:
     int mLabel;
-    QPen mOriginalPen;
+    static QPen mDefaultPen;
+    static QPen mHoveredPen;
+    static QPen mSelectedPen;
     bool mIsSelected = false;
+    bool mIsHovered = false;
 };
 
 #endif // CUSTOMPOLYGONITEM_H

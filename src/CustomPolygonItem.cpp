@@ -1,52 +1,99 @@
 ﻿#include "CustomPolygonItem.h"
+#include <QGraphicsScene>
+
+QPen CustomPolygonItem::mDefaultPen = QPen(QColor("#000000"), 1);
+QPen CustomPolygonItem::mHoveredPen = QPen(QColor("#F0F8FF"), 1.5);
+QPen CustomPolygonItem::mSelectedPen = QPen(QColor("#4169E1"), 1.8);
 
 CustomPolygonItem::CustomPolygonItem(const QPolygon& polygon, QGraphicsItem* parent) 
     : mLabel(0)
     , QGraphicsPolygonItem(polygon, parent) {
-    mOriginalPen = QPen(Qt::black, 1);
+
     setAcceptHoverEvents(true);
+
+    setPen(mDefaultPen);
 }
 
 void CustomPolygonItem::setLabel(int label) {
     mLabel = label;
 }
 
-int CustomPolygonItem::getLabel()
-{
+int CustomPolygonItem::getLabel() {
     return mLabel;
 }
 
+void CustomPolygonItem::setSelected(bool isSelected) {
+    emit isSelected ? polygonSelected(this) : polygonDeselected(this);
+    mIsSelected = isSelected;
+    this->setPen(isSelected ? mSelectedPen : mDefaultPen);
+}
+
+void CustomPolygonItem::setHovered(bool isHovered) {
+    mIsHovered = isHovered;
+
+    if (isHovered) {
+        setPen(mHoveredPen);
+    }
+    else if (mIsSelected) {
+        setPen(mSelectedPen);
+    }
+    else {
+        setPen(mDefaultPen);
+    }
+}
+
+bool CustomPolygonItem::isSelected() const {
+    return mIsSelected;
+}
+
+bool CustomPolygonItem::isHovered() const {
+    return mIsHovered;
+}
+
+void CustomPolygonItem::setDefaultColor(const QColor& color) {
+    mDefaultPen.setColor(color);
+    if (!mIsSelected && !mIsHovered) {
+        setPen(mDefaultPen);
+    }
+}
+
+void CustomPolygonItem::setHoveredColor(const QColor& color) {
+    mHoveredPen.setColor(color);
+    if (mIsHovered) {
+        setPen(mHoveredPen);
+    }
+}
+
+void CustomPolygonItem::setSelectedColor(const QColor& color) {
+    mSelectedPen.setColor(color);
+    if (mIsSelected) {
+        setPen(mSelectedPen);
+    }
+}
+
+QPen CustomPolygonItem::getDefaultPen() const {
+    return mDefaultPen;
+}
+
+QPen CustomPolygonItem::getHoveredPen() const {
+    return mHoveredPen;
+}
+
+QPen CustomPolygonItem::getSelectedPen() const {
+    return mSelectedPen;
+}
+
 void CustomPolygonItem::hoverEnterEvent(QGraphicsSceneHoverEvent* event) {
+    if (!mIsSelected) {
+        setHovered(true);
+    }
     QGraphicsPolygonItem::hoverEnterEvent(event);
-    //qDebug() << "Polygon hovered!";
 }
 
-void CustomPolygonItem::mousePressEvent(QGraphicsSceneMouseEvent* event) {
-    if (event->button() == Qt::LeftButton) {
-        QGraphicsPolygonItem::mousePressEvent(event);
-        //std::cout << "Polygon clicked!" << std::endl;
-        mIsSelected = !mIsSelected;
-
-        if (mIsSelected) {
-            // 发射被选中信号
-            emit polygonSelected(this);
-            this->setPen(QPen(Qt::blue, 1.2));
-            //std::cout << "label:" << mLabel << std::endl;
-            //std::cout << "包含" << this->polygon().size() << "个边角点" << std::endl;
-            //for (int i = 0; i < this->polygon().size(); ++i) {
-            //    std::cout << "(" << this->polygon().at(i).x() << "," << this->polygon().at(i).y() << ")" << std::endl;
-            //}
-        }
-        else {
-            // 发射被取消选中信号
-            emit polygonDeselected(this);
-            this->setPen(mOriginalPen);
-        }
-
-
+void CustomPolygonItem::hoverLeaveEvent(QGraphicsSceneHoverEvent* event) {
+    if (!mIsSelected) {
+        setHovered(false);
     }
-    else if (event->button() == Qt::RightButton) {
-        QGraphicsPolygonItem::mousePressEvent(event);
-        std::cout << (int)event->pos().x() << " " << (int)event->pos().y() << std::endl;
-    }
+    QGraphicsPolygonItem::hoverLeaveEvent(event);
 }
+
