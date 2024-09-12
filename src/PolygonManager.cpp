@@ -11,29 +11,17 @@ PolygonManager::PolygonManager(CustomGraphicsScene* scene, SegmentationResult* s
     , mSegResult(segResult) {
 
     connect(mGraphicsScene, &CustomGraphicsScene::startMerge, this, &PolygonManager::handleStartMerge);
-    connect(mGraphicsScene, &CustomGraphicsScene::startMerge, this, [this]() {
-        auto task = [this]() {
-            handleStartMerge();
-        };
 
-        // 创建并启动自定义线程
-        CustomThread* processingThread = new CustomThread(task, this);
-
-        processingThread->start();
-    });
 }
 
 PolygonManager::~PolygonManager() {
     for (auto& pair : mOGRPolygons) {
-        if (pair.second != nullptr) {
-            delete pair.second;
-        }
+        delete pair.second;
     }
-    //for (auto& pair : mPolygonItems) {
-    //    if (pair.second != nullptr) {
-    //        delete pair.second;
-    //    }
-    //}
+
+    for (auto& pair : mPolygonItems) {
+        std::cout << pair.second->getLabel() << std::endl;
+    }
 }
 
 void PolygonManager::setGraphicsScene(CustomGraphicsScene* scene) {
@@ -132,67 +120,75 @@ void PolygonManager::showAllPolygons() {
 
         CustomPolygonItem* polygonItem = new CustomPolygonItem(qPolygon);
 
-        QObject::connect(polygonItem, &CustomPolygonItem::polygonSelected, this, &PolygonManager::handlePolygonSelected);
+        connect(polygonItem, &CustomPolygonItem::polygonSelected, this, &PolygonManager::handlePolygonSelected);
 
-        QObject::connect(polygonItem, &CustomPolygonItem::polygonDeselected, this, &PolygonManager::handlePolygonDeselected);
+        connect(polygonItem, &CustomPolygonItem::polygonDeselected, this, &PolygonManager::handlePolygonDeselected);
 
         mPolygonItems[i] = polygonItem;
 
         mPolygonItems[i]->setLabel(i);
 
-        mPolygonItems[i]->setPen(QPen(Qt::black, 1));
-
         // 绘制多边形
-        mGraphicsScene->addItem(polygonItem);
+        mGraphicsScene->addItem(mPolygonItems[i]);
     }
-
 }
 
 void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems) {
-    if (mSegResult == nullptr) {
-        return;
-    }
-
-    if (polygonItems.size() < 2) {
+    if (mSegResult == nullptr || polygonItems.size() < 2) {
         return;
     }
 
     std::cout << "正在合并所选择的多边形..." << std::endl;
 
-    // 先合并labels
+    // 合并标签
+    std::vector<int> mergeLabels = getMergeLabels(polygonItems);
+
+    // 删除旧的多边形
+    removeOldPolygons(polygonItems);
+
+    // 计算新的检测范围
+    cv::Rect newBoundingBox = computeNewBoundingBox(polygonItems[0]);
+
+    // 生成新的多边形
+    generateNewPolygons(newBoundingBox, mergeLabels);
+
+    std::cout << "生成合并后的多边形完成" << std::endl;
+}
+
+std::vector<int> PolygonManager::getMergeLabels(const std::vector<CustomPolygonItem*>& polygonItems) {
     std::vector<int> mergeLabels;
     for (CustomPolygonItem* item : polygonItems) {
         int label = item->getLabel();
         mergeLabels.push_back(label);
     }
     mSegResult->mergeLabels(mergeLabels);
+    return mergeLabels;
+}
 
-    // 再根据合并后的labels生成新的多边形并移除旧的多边形
-    // 删除合并前的多边形
-    for (int i = 0; i < polygonItems.size(); ++i) {
-        int label = polygonItems[i]->getLabel();
+void PolygonManager::removeOldPolygons(const std::vector<CustomPolygonItem*>& polygonItems) {
+    for (CustomPolygonItem* item : polygonItems) {
+        int label = item->getLabel();
         if (mOGRPolygons.find(label) != mOGRPolygons.end()) {
             delete mOGRPolygons[label];
             mOGRPolygons.erase(label);
             mGraphicsScene->removeItem(mPolygonItems[label]);
-            
-            //delete polygonItems[label];
-            //mPolygonItems.erase(label);
+            mPolygonItems.erase(label);
         }
     }
+}
 
-    // 确定要重新检测的多边形的范围
-    CustomPolygonItem* targetItem = polygonItems[0];
+cv::Rect PolygonManager::computeNewBoundingBox(CustomPolygonItem* targetItem) {
     int targetLabel = targetItem->getLabel();
     const cv::Rect& newBoundingBox = mSegResult->getBoundingBoxByLabel(targetLabel);
-    int startX = newBoundingBox.x;
-    int startY = newBoundingBox.y;
-    int endX = newBoundingBox.x + newBoundingBox.width;
-    int endY = newBoundingBox.y + newBoundingBox.height;
+    return newBoundingBox;
+}
 
-    //std::cout << "多边形重新检测范围：" << cv::Rect(startX, startY, endX - startX, endY - startY) << std::endl;
+void PolygonManager::generateNewPolygons(const cv::Rect& boundingBox, const std::vector<int>& mergeLabels) {
+    int startX = boundingBox.x;
+    int startY = boundingBox.y;
+    int endX = boundingBox.x + boundingBox.width;
+    int endY = boundingBox.y + boundingBox.height;
 
-    // 生成合并后的多边形
     const std::vector<std::vector<int>>& labels = mSegResult->getLabels();
     int labelCount = mSegResult->getLabelCount();
     int width = labels[0].size();
@@ -205,26 +201,21 @@ void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
         }
     }
 
-    // 若有0值将0值替换为一个非零的背景值
     cv::Mat nonZeroLabelsMat = labelsMat.clone();
     nonZeroLabelsMat.setTo(labelCount + 1, labelsMat == 0);
 
-    // 找到轮廓
     std::vector<std::vector<cv::Point>> contours;
     std::vector<cv::Vec4i> hierarchy;
     cv::findContours(nonZeroLabelsMat, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_SIMPLE);
 
-    // 将轮廓转换为 OGRPolygon 对象
     for (size_t i = 0; i < contours.size(); ++i) {
         const std::vector<cv::Point>& contour = contours[i];
         int label = nonZeroLabelsMat.at<int>(contour[0].y, contour[0].x);
 
-        // 将非零的背景值转换回0
         if (label == labelCount + 1) {
             label = 0;
         }
 
-        // 若找到的轮廓与所选多边形无关则跳过
         if (std::find(mergeLabels.begin(), mergeLabels.end(), label) == mergeLabels.end()) {
             continue;
         }
@@ -249,14 +240,8 @@ void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
         mPolygonItems[label]->setLabel(label);
         mGraphicsScene->addItem(polygonItem);
 
-        // break的原因：
-        // 合成多边形完成，不需要再进行操作
-        // 若围成的区域形成一个环则会出现两个相同的轮廓，若不退出循环则会导致重复添加
-        break;
+        break;  // 确保只生成一次多边形
     }
-
-    std::cout << "生成合并后的多边形完成" << std::endl;
-
 }
 
 void PolygonManager::setDefaultBorderColor(QColor color) {

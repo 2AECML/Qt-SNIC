@@ -31,6 +31,14 @@ public:
 
     void mergePolygons(std::vector<CustomPolygonItem*> polygonItems);
 
+    std::vector<int> getMergeLabels(const std::vector<CustomPolygonItem*>& polygonItems);
+
+    void removeOldPolygons(const std::vector<CustomPolygonItem*>& polygonItems);
+
+    cv::Rect computeNewBoundingBox(CustomPolygonItem* targetItem);
+
+    void generateNewPolygons(const cv::Rect& boundingBox, const std::vector<int>& mergeLabels);
+
     void setDefaultBorderColor(QColor color);
 
     void setHoveredBorderColor(QColor color);

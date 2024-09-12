@@ -58,6 +58,10 @@ const std::vector<std::vector<int>>& SegmentationResult::getLabels() const {
 }
 
 int SegmentationResult::getLabelByPixel(int x, int y) {
+    if (x < 0 || x >= mLabels[0].size() || y < 0 || y >= mLabels.size()) {
+        std::cerr << "坐标越界" << std::endl;
+        return -1;
+    }
     return mLabels[y][x];
 }
 
@@ -66,6 +70,11 @@ const std::map<int, cv::Rect>& SegmentationResult::getBoundingBoxes() {
 }
 
 const cv::Rect& SegmentationResult::getBoundingBoxByLabel(int label) {
+    if (mBoundingBoxes.find(label) == mBoundingBoxes.end()) {
+        std::cerr << "没有找到标签 " << label << " 的外包矩形" << std::endl;
+        static cv::Rect emptyRect;
+        return emptyRect;
+    }
     return mBoundingBoxes[label];
 }
 
@@ -98,8 +107,6 @@ void SegmentationResult::mergeLabels(std::vector<int>& labels) {
     }
 
     std::cout << "label合并完成" << std::endl;
-
-    
 
     //for (int i = 0; i < labels.size(); ++i) {
     //    std::cout << "删除标签 " << labels[i] << " 的外包矩形" << std::endl;
