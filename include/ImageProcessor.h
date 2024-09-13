@@ -2,6 +2,7 @@
 #define IMAGEPROCESSOR_H
 
 #include "snic.h"
+#include "snicoptions.h"
 #include "SegmentationResult.h"
 #include <string>
 #include <memory>
@@ -20,19 +21,24 @@ extern "C" {
 }
 
 class ImageProcessor : public QObject{
+    Q_OBJECT
+
 public:
     ImageProcessor();
+    explicit ImageProcessor(const std::string& fileName);
     void setImageFileName(const std::string& fileName);
     void executeSNIC();
-    std::unique_ptr<SegmentationResult> getSegmentationResult() const;
+    std::shared_ptr<SegmentationResult> getSegmentationResult() const;
+    void setSNICOptions(const SNICOptions& options);
 
 private:
     void getDataSet();
 
 private:
     std::string mImageFileName;
-    std::unique_ptr<SegmentationResult> mSegResult;
+    std::shared_ptr<SegmentationResult> mSegResult;
     std::unique_ptr<GDALDataset, GDALDatasetDeleter> mDataset;
+    SNICOptions mSNICOptions;
 
 signals:
     void doingGetDataset();

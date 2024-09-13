@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "snicoptionsdialog.h"
 #include <QFileDialog>
 #include <QDebug>
 #include <gdal_priv.h>
@@ -8,15 +9,19 @@
 #include <QTimer>
 #include <QTextCodeC>
 #include <QColorDialog>
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
-    , mDataset(nullptr)
-    , mSegResult(nullptr)
+    , mGraphicsView(nullptr)
+    , mGraphicsScene(nullptr)
+    , mProgressBar(nullptr)
     , mImageItem(nullptr)
+    , mImageProcessor(new ImageProcessor())
     , mPolygonManager(nullptr) {
 
     initUI();
+    loadStyle();
 }
 
 MainWindow::~MainWindow() {
@@ -42,7 +47,6 @@ void MainWindow::initUI() {
     mGraphicsView->setScene(mGraphicsScene);
     mGraphicsView->setGeometry(10, 50, 1000, 700);
 
-    // Setup menu bar
     QMenuBar* menuBar = new QMenuBar(this);
     setMenuBar(menuBar);
 
@@ -60,8 +64,11 @@ void MainWindow::initUI() {
 
     QMenu* segmentMenu = new QMenu("Segmentation", this);
     QAction* segmentAction = new QAction("Start", this);
+    QAction* segmentOptionAction = new QAction("Options", this);
     connect(segmentAction, &QAction::triggered, this, &MainWindow::segmentImage);
+    connect(segmentOptionAction, &QAction::triggered, this, &MainWindow::showOptionsDialog);
     segmentMenu->addAction(segmentAction);
+    segmentMenu->addAction(segmentOptionAction);
 
     QMenu* editMenu = new QMenu("Edit", this);
     QAction* setDefaultColorAction = new QAction("Set Default Border Color", this);
@@ -83,178 +90,10 @@ void MainWindow::initUI() {
     mProgressBar->setVisible(false);
     mProgressBar->setMaximum(100);
 
-    setStyleSheet(R"(/* 设置整个应用程序的背景颜色和字体 */
-                    QWidget {
-                        background-color: #f5f5f5;
-                        font-family: Arial, sans-serif;
-                        font-size: 14px;
-                        color: #333;
-                    }
-
-                    /* 主窗口的标题栏 */
-                    QMainWindow {
-                        background-color: #ffffff;
-                    }
-
-                    /* 菜单栏 */
-                    QMenuBar {
-                        background-color: #003366;
-                        color: #ffffff;
-                        height: 40px; /* 设置菜单栏的高度 */
-                        padding: 0;   /* 清除内边距 */
-                    }
-
-                    QMenuBar::item {
-                        background-color: #003366;
-                        color: #ffffff;
-                        padding: 0 10px; /* 增加菜单项的内边距 */
-                    }
-
-                    QMenuBar::item:selected {
-                        background-color: #0055cc;
-                        color: #ffffff;
-                    }
-
-                    /* 菜单 */
-                    QMenu {
-                        background-color: #ffffff;
-                        border: 1px solid #cccccc;
-                        padding: 5px;
-                    }
-
-                    QMenu::item:selected {
-                        background-color: #0055cc;
-                        color: #ffffff;
-                    }
-
-                    /* 按钮 */
-                    QPushButton {
-                        background-color: #0055cc;
-                        color: #ffffff;
-                        border: none;
-                        padding: 10px 20px;
-                        border-radius: 5px;
-                        font-size: 14px;
-                    }
-
-                    QPushButton:hover {
-                        background-color: #003d99;
-                    }
-
-                    /* 普通文本框 */
-                    QLineEdit {
-                        background-color: #ffffff;
-                        border: 1px solid #cccccc;
-                        border-radius: 5px;
-                        padding: 5px;
-                    }
-
-                    /* 多行文本框 */
-                    QTextEdit {
-                        background-color: #ffffff;
-                        border: 1px solid #cccccc;
-                        border-radius: 5px;
-                        padding: 5px;
-                    }
-
-                    /* 窗口中的图像视图 */
-                    QGraphicsView {
-                        border: 1px solid #cccccc;
-                        background-color: #ffffff;
-                    }
-
-                    /* 状态栏 */
-                    QStatusBar {
-                        color: #ffffff;
-                        height: 30px; /* 设置状态栏的高度 */
-                        padding: 0;   /* 清除内边距 */
-                    }
-
-                    QProgressBar {
-                        text-align:center;
-                        background-color:#DDDDDD;
-                        border: 0px solid #DDDDDD;
-                        border-radius:5px;
-                    }
-                    
-                    QProgressBar::chunk {
-                        background-color:#05B8CC; 
-                        border-radius: 5px;
-                    }
-
-                    QStatusBar {
-                        color: #ffffff;
-                        height: 30px; /* 设置状态栏的高度 */
-                        padding: 0;   /* 清除内边距 */
-                        border: none; /* 禁止右下角拉伸 */
-                    }
-
-                    QScrollBar:vertical {
-                        border: 2px solid #cccccc;
-                        background: #f5f5f5;
-                        width: 12px;
-                        border-radius: 6px;
-                    }
-
-                    QScrollBar::handle:vertical {
-                        background: #0055cc;
-                        min-height: 20px;
-                        border-radius: 6px;
-                    }
-
-                    QScrollBar::add-line:vertical {
-                        border: 2px solid #cccccc;
-                        background: #f5f5f5;
-                        height: 20px;
-                        border-radius: 6px;
-                        subcontrol-position: bottom;
-                        subcontrol-origin: margin;
-                    }
-
-                    QScrollBar::sub-line:vertical {
-                        border: 2px solid #cccccc;
-                        background: #f5f5f5;
-                        height: 20px;
-                        border-radius: 6px;
-                        subcontrol-position: top;
-                        subcontrol-origin: margin;
-                    }
-
-                    QScrollBar:horizontal {
-                        border: 2px solid #cccccc;
-                        background: #f5f5f5;
-                        height: 12px;
-                        border-radius: 6px;
-                    }
-
-                    QScrollBar::handle:horizontal {
-                        background: #0055cc;
-                        min-width: 20px;
-                        border-radius: 6px;
-                    }
-
-                    QScrollBar::add-line:horizontal {
-                        border: 2px solid #cccccc;
-                        background: #f5f5f5;
-                        width: 20px;
-                        border-radius: 6px;
-                        subcontrol-position: right;
-                        subcontrol-origin: margin;
-                    }
-
-                    QScrollBar::sub-line:horizontal {
-                        border: 2px solid #cccccc;
-                        background: #f5f5f5;
-                        width: 20px;
-                        border-radius: 6px;
-                        subcontrol-position: left;
-                        subcontrol-origin: margin;
-                    }
-    )");
 }
 
 void MainWindow::loadImage() {
-    QString fileName = QFileDialog::getOpenFileName(this, "Open Image", "", "Images (*.png *.xpm *.jpg);;All Files (*)");
+    QString fileName = QFileDialog::getOpenFileName(this, "Open Image", "", "Images (*.png *.xpm *.jpg *.bmp *.tiff *.tif *.hdr *.h5 *.netcdf);;All Files (*)");
     if (!fileName.isEmpty()) {
         mGraphicsView->resetCachedContent();
         clearImage();
@@ -281,61 +120,9 @@ void MainWindow::clearImage() {
     }
 }
 
-void MainWindow::executeSNIC() {
-    if (mImageFileName.empty()) {
-        qDebug() << "The split could not be completed because the image path is invalid";
-        return;
-    }
-
-    emit doingGetDataset();
-
-    getDataSet();
-
-    if (mDataset == nullptr) {
-        qDebug() << "The split could not be completed because there is no data in dataset";
-        return;
-    }
-
-    int w = mDataset->GetRasterXSize();
-    int h = mDataset->GetRasterYSize();
-    int c = mDataset->GetRasterCount();
-
-    // 读取图像数据
-    double* pinp = new double[w * h * c];
-    for (int i = 0; i < c; ++i) {
-        GDALRasterBand* band = mDataset->GetRasterBand(i + 1);
-        CPLErr err = band->RasterIO(GF_Read, 0, 0, w, h, pinp + i * w * h, w, h, GDT_Float64, 0, 0);
-        if (err) {
-            qDebug() << "读取栅格数据时出错: " << CPLGetLastErrorMsg();
-        }
-    }
-
-    emit doingSegment();
-
-    int numsuperpixels = 500; // 超像素数量
-    double compactness = 20.0; // 紧凑度
-    bool doRGBtoLAB = true; // 是否进行RGB到LAB的转换
-    int* plabels = new int[w * h]; // 存储分割结果的标签
-    int* pnumlabels = new int[1]; // 存储标签数量
-
-    qDebug() << "开始进行图像分割...";
-
-    SNIC_main(pinp, w, h, c, numsuperpixels, compactness, doRGBtoLAB, plabels, pnumlabels);
-
-    qDebug() << "图像分割完成";
-
-    emit doingInitResult();
-
-    mSegResult.reset(new SegmentationResult(plabels, pnumlabels, w, h));
-
-    delete[] pinp;
-    delete[] plabels;
-    delete[] pnumlabels;
-}
-
 void MainWindow::exportResult() {
     auto task = [this]() {
-        mSegResult->exportToCSV();
+        mImageProcessor->getSegmentationResult()->exportToCSV();
     };
 
     // 创建并启动自定义线程
@@ -350,11 +137,13 @@ void MainWindow::exportResult() {
 }
 
 void MainWindow::segmentImage() {
+    mImageProcessor->setImageFileName(mImageFileName);
+
     mProgressBar->setVisible(true); // 显示进度条
     mProgressBar->setValue(0); // 初始化进度为0
 
     auto task = [this]() {
-        executeSNIC();
+        mImageProcessor->executeSNIC();
     };
 
     // 创建并启动自定义线程
@@ -372,15 +161,15 @@ void MainWindow::segmentImage() {
         });
     });
 
-    connect(this, &MainWindow::doingGetDataset, this, [this]() {
+    connect(mImageProcessor.get(), &ImageProcessor::doingGetDataset, this, [this]() {
         mProgressBar->setValue(10); // 更新进度条的值
     });
 
-    connect(this, &MainWindow::doingSegment, this, [this]() {
+    connect(mImageProcessor.get(), &ImageProcessor::doingSegment, this, [this]() {
         mProgressBar->setValue(30); // 更新进度条的值
     });
 
-    connect(this, &MainWindow::doingInitResult, this, [this]() {
+    connect(mImageProcessor.get(), &ImageProcessor::doingInitResult, this, [this]() {
         mProgressBar->setValue(60); // 更新进度条的值
     });
     
@@ -408,31 +197,34 @@ void MainWindow::changeSelectedBorderColor() {
     }
 }
 
-void MainWindow::getDataSet() {
-    const char* cFileName = mImageFileName.c_str();
-    GDALAllRegister();
-    mDataset.reset(static_cast<GDALDataset*>(GDALOpen(cFileName, GA_ReadOnly)));
-    if (mDataset == nullptr) {
-        qDebug() << "无法打开文件";
-        return;
+void MainWindow::showOptionsDialog() {
+    SNICOptionsDialog dialog(this);
+    if (dialog.exec() == QDialog::Accepted) {
+        SNICOptions options;
+        options.superpixelNumber = dialog.getSuperpixelNumber();
+        options.compactness = dialog.getCompactness();
+
+        QMessageBox::information(this, "Options",
+            QString("Superpixels: %1\nCompactness: %2")
+            .arg(options.superpixelNumber)
+            .arg(options.compactness));
+
+        mImageProcessor->setSNICOptions(options);
     }
-
-    // 获取图像的基本信息
-    int nRasterXSize = mDataset->GetRasterXSize();
-    int nRasterYSize = mDataset->GetRasterYSize();
-    int nBands = mDataset->GetRasterCount();
-
-    qDebug() << "图像宽度: " << nRasterXSize;
-    qDebug() << "图像高度: " << nRasterYSize;
-    qDebug() << "波段数量: " << nBands;
 }
 
 void MainWindow::showPolygons() {
-
-    mPolygonManager.reset(new PolygonManager(mGraphicsScene, mSegResult.get()));
-
+    mPolygonManager.reset(new PolygonManager(mGraphicsScene, mImageProcessor->getSegmentationResult().get()));
     mPolygonManager->generatePolygons();
-
     mPolygonManager->showAllPolygons();
+}
+
+void MainWindow::loadStyle() {
+    QFile file(":/main.qss"); // 打开 QSS 文件
+    if (file.open(QFile::ReadOnly)) { // 如果成功打开
+        std::cout << "load style sheet" << std::endl;
+        QString styleSheet = file.readAll(); // 读取样式表内容
+        this->setStyleSheet(styleSheet); // 设置样式表
+    }
 }
 

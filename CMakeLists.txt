@@ -22,6 +22,7 @@ include("D:/VCPKG/vcpkg/scripts/buildsystems/vcpkg.cmake")
 # 设置目录
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
+set(RESOURCE_DIR ${CMAKE_SOURCE_DIR}/res)
 
 # 添加头文件目录
 include_directories(${INCLUDE_DIR})
@@ -30,22 +31,28 @@ include_directories(${INCLUDE_DIR})
 add_executable (Segmentation 
 	
 	${INCLUDE_DIR}/snic.h
-	${INCLUDE_DIR}/SegmentationResult.h
-	${INCLUDE_DIR}/CustomGraphicsView.h
-	${INCLUDE_DIR}/CustomGraphicsScene.h
-	${INCLUDE_DIR}/CustomPolygonItem.h
-	${INCLUDE_DIR}/PolygonManager.h
-	"include/CustomThread.h"
-	${INCLUDE_DIR}/MainWindow.h
+	${INCLUDE_DIR}/segmentationresult.h
+	${INCLUDE_DIR}/customgraphicsview.h
+	${INCLUDE_DIR}/customgraphicsscene.h
+	${INCLUDE_DIR}/custompolygonitem.h
+	${INCLUDE_DIR}/polygonmanager.h
+	${INCLUDE_DIR}/imageprocessor.h
+	${INCLUDE_DIR}/customthread.h
+	${INCLUDE_DIR}/snicoptions.h
+	${INCLUDE_DIR}/snicoptionsdialog.h
+	${INCLUDE_DIR}/mainwindow.h
 	${SOURCE_DIR}/main.cpp
 	${SOURCE_DIR}/snic.c
-	${SOURCE_DIR}/SegmentationResult.cpp
-	${SOURCE_DIR}/CustomGraphicsView.cpp
-	${SOURCE_DIR}/CustomGraphicsScene.cpp
-	${SOURCE_DIR}/CustomPolygonItem.cpp
-	${SOURCE_DIR}/PolygonManager.cpp
-	${SOURCE_DIR}/MainWindow.cpp
-	"src/CustomThread.cpp" "include/ImageProcessor.h" "src/ImageProcessor.cpp")
+	${SOURCE_DIR}/segmentationresult.cpp
+	${SOURCE_DIR}/customgraphicsview.cpp
+	${SOURCE_DIR}/customgraphicsscene.cpp
+	${SOURCE_DIR}/custompolygonitem.cpp
+	${SOURCE_DIR}/polygonmanager.cpp
+	${SOURCE_DIR}/imageprocessor.cpp
+	${SOURCE_DIR}/customthread.cpp
+	${SOURCE_DIR}/snicoptionsdialog.cpp
+	${SOURCE_DIR}/mainwindow.cpp
+	${RESOURCE_DIR}/resources.qrc)
 
 # 寻找 Qt 库
 find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
