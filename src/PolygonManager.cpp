@@ -13,7 +13,7 @@ PolygonManager::PolygonManager(CustomGraphicsScene* scene, SegmentationResult* s
 }
 
 PolygonManager::~PolygonManager() {
-    // 智能指针会自动释放内存，无需手动删除
+    
 }
 
 void PolygonManager::setGraphicsScene(CustomGraphicsScene* scene) {
