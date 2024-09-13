@@ -13,6 +13,7 @@ MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , mDataset(nullptr)
     , mSegResult(nullptr)
+    , mImageItem(nullptr)
     , mPolygonManager(nullptr) {
 
     initUI();
@@ -256,20 +257,28 @@ void MainWindow::loadImage() {
     QString fileName = QFileDialog::getOpenFileName(this, "Open Image", "", "Images (*.png *.xpm *.jpg);;All Files (*)");
     if (!fileName.isEmpty()) {
         mGraphicsView->resetCachedContent();
-        mGraphicsScene->clear();
+        clearImage();
+        mPolygonManager.reset();
         mImageFileName = fileName.toStdString();
         showImage();
         mGraphicsView->resetScale();
         mGraphicsScene->setSceneRect(mGraphicsScene->itemsBoundingRect());
         mGraphicsView->fitInView(mGraphicsScene->sceneRect(), Qt::KeepAspectRatio);
-        mPolygonManager.reset();
     }
 }
 
 void MainWindow::showImage() {
     QPixmap pixmap(mImageFileName.c_str());
-    QGraphicsPixmapItem* image = new QGraphicsPixmapItem(pixmap);
-    mGraphicsScene->addItem(image);
+    mImageItem = new QGraphicsPixmapItem(pixmap);
+    mGraphicsScene->addItem(mImageItem);
+}
+
+void MainWindow::clearImage() {
+    if (mImageItem) {
+        mGraphicsScene->removeItem(mImageItem);
+        delete mImageItem;
+        mImageItem = nullptr;
+    }
 }
 
 void MainWindow::executeSNIC() {
@@ -416,7 +425,6 @@ void MainWindow::getDataSet() {
     qDebug() << "图像宽度: " << nRasterXSize;
     qDebug() << "图像高度: " << nRasterYSize;
     qDebug() << "波段数量: " << nBands;
-
 }
 
 void MainWindow::showPolygons() {

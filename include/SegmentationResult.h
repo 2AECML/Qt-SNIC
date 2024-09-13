@@ -21,7 +21,7 @@ public:
     int getLabelByPixel(int x, int y);
     const std::map<int, cv::Rect>& getBoundingBoxes();
     const cv::Rect& getBoundingBoxByLabel(int label);
-    void mergeLabels(std::vector<int>& labels);
+    int mergeLabels(std::vector<int>& labels);
     void adjustLabels();
 
 private:

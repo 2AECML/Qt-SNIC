@@ -45,7 +45,7 @@ add_executable (Segmentation
 	${SOURCE_DIR}/CustomPolygonItem.cpp
 	${SOURCE_DIR}/PolygonManager.cpp
 	${SOURCE_DIR}/MainWindow.cpp
-	"src/CustomThread.cpp")
+	"src/CustomThread.cpp" "include/ImageProcessor.h" "src/ImageProcessor.cpp")
 
 # 寻找 Qt 库
 find_package(Qt5 COMPONENTS Core Widgets REQUIRED)

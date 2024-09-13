@@ -1,4 +1,4 @@
-#include "SegmentationResult.h"
+ï»¿#include "SegmentationResult.h"
 
 SegmentationResult::SegmentationResult() 
     : mLabelCount(0) {
@@ -25,14 +25,14 @@ void SegmentationResult::exportToCSV() {
 
     adjustLabels();
 
-    std::ofstream file("·Ö¸î½á¹û.csv");
+    std::ofstream file("åˆ†å‰²ç»“æžœ.csv");
 
     if (!file.is_open()) {
-        std::cerr << "ÎÞ·¨´ò¿ªÎÄ¼þ½øÐÐÐ´Èë" << std::endl;
+        std::cerr << "æ— æ³•æ‰“å¼€æ–‡ä»¶è¿›è¡Œå†™å…¥" << std::endl;
         return;
     }
 
-    std::cout << "¿ªÊ¼Ð´Èë·Ö¸î½á¹ûµ½CSVÎÄ¼þ..." << std::endl;
+    std::cout << "å¼€å§‹å†™å…¥åˆ†å‰²ç»“æžœåˆ°CSVæ–‡ä»¶..." << std::endl;
 
     for (const auto& row : mLabels) {
         for (size_t i = 0; i < row.size(); ++i) {
@@ -44,7 +44,7 @@ void SegmentationResult::exportToCSV() {
         file << "\n";
     }
 
-    std::cout << "Ð´Èë·Ö¸î½á¹ûµ½CSVÎÄ¼þÍê³É" << std::endl;
+    std::cout << "å†™å…¥åˆ†å‰²ç»“æžœåˆ°CSVæ–‡ä»¶å®Œæˆ" << std::endl;
 
     file.close();
 }
@@ -59,7 +59,7 @@ const std::vector<std::vector<int>>& SegmentationResult::getLabels() const {
 
 int SegmentationResult::getLabelByPixel(int x, int y) {
     if (x < 0 || x >= mLabels[0].size() || y < 0 || y >= mLabels.size()) {
-        std::cerr << "×ø±êÔ½½ç" << std::endl;
+        std::cerr << "åæ ‡è¶Šç•Œ" << std::endl;
         return -1;
     }
     return mLabels[y][x];
@@ -71,14 +71,14 @@ const std::map<int, cv::Rect>& SegmentationResult::getBoundingBoxes() {
 
 const cv::Rect& SegmentationResult::getBoundingBoxByLabel(int label) {
     if (mBoundingBoxes.find(label) == mBoundingBoxes.end()) {
-        std::cerr << "Ã»ÓÐÕÒµ½±êÇ© " << label << " µÄÍâ°ü¾ØÐÎ" << std::endl;
+        std::cerr << "æ²¡æœ‰æ‰¾åˆ°æ ‡ç­¾ " << label << " çš„å¤–åŒ…çŸ©å½¢" << std::endl;
         static cv::Rect emptyRect;
         return emptyRect;
     }
     return mBoundingBoxes[label];
 }
 
-void SegmentationResult::mergeLabels(std::vector<int>& labels) {
+int SegmentationResult::mergeLabels(std::vector<int>& labels) {
     int targetLabel = labels[0];
 
     mLabelCount = mLabelCount - labels.size() + 1;
@@ -100,22 +100,24 @@ void SegmentationResult::mergeLabels(std::vector<int>& labels) {
     for (int y = startY; y < endY; ++y) {
         for (int x = startX; x < endX; ++x) {
             if (std::find(labels.begin() + 1, labels.end(), mLabels[y][x]) != labels.end()) {
-                //std::cout << "ºÏ²¢±êÇ© " << mLabels[y][x] << " µ½ " << targetLabel << std::endl;
+                //std::cout << "åˆå¹¶æ ‡ç­¾ " << mLabels[y][x] << " åˆ° " << targetLabel << std::endl;
                 mLabels[y][x] = targetLabel;
             }
         }
     }
 
-    std::cout << "labelºÏ²¢Íê³É" << std::endl;
+    std::cout << "labelåˆå¹¶å®Œæˆ" << std::endl;
 
-    //for (int i = 0; i < labels.size(); ++i) {
-    //    std::cout << "É¾³ý±êÇ© " << labels[i] << " µÄÍâ°ü¾ØÐÎ" << std::endl;
-    //    mBoundingBoxes.erase(labels[i]);
-    //}
+    for (int i = 0; i < labels.size(); ++i) {
+        std::cout << "åˆ é™¤æ ‡ç­¾ " << labels[i] << " çš„å¤–åŒ…çŸ©å½¢" << std::endl;
+        mBoundingBoxes.erase(labels[i]);
+    }
 
     mBoundingBoxes[targetLabel] = cv::Rect(startX, startY, endX - startX, endY - startY);
 
-    //std::cout << "ºÏ²¢ºóµÄÍâ°ü¾ØÐÎ: " << mBoundingBoxes[targetLabel] << std::endl;
+    std::cout << "åˆå¹¶åŽçš„å¤–åŒ…çŸ©å½¢: " << mBoundingBoxes[targetLabel] << std::endl;
+
+    return targetLabel;
 }
 
 void SegmentationResult::adjustLabels() {
@@ -145,7 +147,7 @@ void SegmentationResult::adjustLabels() {
 
 void SegmentationResult::calculateBoundingBoxes() {
 
-    std::cout << "¼ÆËãÃ¿¸ölabelµÄÍâ°ü¾ØÐÎÖÐ..." << std::endl;
+    std::cout << "è®¡ç®—æ¯ä¸ªlabelçš„å¤–åŒ…çŸ©å½¢ä¸­..." << std::endl;
 
     struct Box{
         int minX;
@@ -184,6 +186,6 @@ void SegmentationResult::calculateBoundingBoxes() {
     }
 
     //for (const auto& pair : mBoundingBoxes) {
-    //    std::cout << "±êÇ© " << pair.first << " µÄÍâ°ü¾ØÐÎ: " << pair.second << std::endl;
+    //    std::cout << "æ ‡ç­¾ " << pair.first << " çš„å¤–åŒ…çŸ©å½¢: " << pair.second << std::endl;
     //}
 }

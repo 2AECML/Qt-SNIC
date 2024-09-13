@@ -1,4 +1,4 @@
-#include "PolygonManager.h"
+ï»¿#include "PolygonManager.h"
 #include "CustomThread.h"
 #include <QDebug>
 #include <QPainterPath>
@@ -6,22 +6,14 @@
 PolygonManager::PolygonManager() : mGraphicsScene(nullptr), mSegResult(nullptr) {
 }
 
-PolygonManager::PolygonManager(CustomGraphicsScene* scene, SegmentationResult* segResult) 
+PolygonManager::PolygonManager(CustomGraphicsScene* scene, SegmentationResult* segResult)
     : mGraphicsScene(scene)
     , mSegResult(segResult) {
-
     connect(mGraphicsScene, &CustomGraphicsScene::startMerge, this, &PolygonManager::handleStartMerge);
-
 }
 
 PolygonManager::~PolygonManager() {
-    for (auto& pair : mOGRPolygons) {
-        delete pair.second;
-    }
-
-    for (auto& pair : mPolygonItems) {
-        std::cout << pair.second->getLabel() << std::endl;
-    }
+    // æ™ºèƒ½æŒ‡é’ˆä¼šè‡ªåŠ¨é‡Šæ”¾å†…å­˜ï¼Œæ— éœ€æ‰‹åŠ¨åˆ é™¤
 }
 
 void PolygonManager::setGraphicsScene(CustomGraphicsScene* scene) {
@@ -39,7 +31,7 @@ void PolygonManager::generatePolygons() {
 
     OGRRegisterAll();
 
-    std::cout << "¿ªÊ¼Éú³É·Ö¸î½á¹ûµÄ¶à±ßÐÎ..." << std::endl;
+    std::cout << "å¼€å§‹ç”Ÿæˆåˆ†å‰²ç»“æžœçš„å¤šè¾¹å½¢..." << std::endl;
 
     const std::vector<std::vector<int>>& labels = mSegResult->getLabels();
     int labelCount = mSegResult->getLabelCount();
@@ -47,7 +39,6 @@ void PolygonManager::generatePolygons() {
     int width = labels[0].size();
     int height = labels.size();
 
-    // ½« labels ×ª»»Îª OpenCV µÄ Mat ¶ÔÏó
     cv::Mat labelsMat(height, width, CV_32SC1);
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
@@ -55,27 +46,23 @@ void PolygonManager::generatePolygons() {
         }
     }
 
-    // ½«0ÖµÌæ»»ÎªÒ»¸ö·ÇÁãµÄ±³¾°Öµ
     cv::Mat nonZeroLabelsMat = labelsMat.clone();
     nonZeroLabelsMat.setTo(labelCount + 1, labelsMat == 0);
 
-    // ÕÒµ½ÂÖÀª
     std::vector<std::vector<cv::Point>> contours;
     std::vector<cv::Vec4i> hierarchy;
     cv::findContours(nonZeroLabelsMat, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_SIMPLE);
 
-    // ½«ÂÖÀª×ª»»Îª OGRPolygon ¶ÔÏó
     for (size_t i = 0; i < contours.size(); ++i) {
         const std::vector<cv::Point>& contour = contours[i];
         int label = nonZeroLabelsMat.at<int>(contour[0].y, contour[0].x);
 
-        // ½«·ÇÁãµÄ±³¾°Öµ×ª»»»Ø0
         if (label == labelCount + 1) {
             label = 0;
         }
 
         if (mOGRPolygons.find(label) == mOGRPolygons.end()) {
-            mOGRPolygons[label] = new OGRPolygon();
+            mOGRPolygons[label] = std::make_unique<OGRPolygon>();
         }
 
         OGRLinearRing* ring = new OGRLinearRing();
@@ -87,49 +74,36 @@ void PolygonManager::generatePolygons() {
         mOGRPolygons[label]->addRingDirectly(ring);
     }
 
-    std::cout << "Éú³É¶à±ßÐÎÍê³É" << std::endl;
+    std::cout << "ç”Ÿæˆå¤šè¾¹å½¢å®Œæˆ" << std::endl;
 
     int index = 0;
-    for (auto& pair : mOGRPolygons) {
+    for (const auto& pair : mOGRPolygons) {
         if (index++ >= 10) {
             break;
         }
         OGRLinearRing* ring = pair.second->getExteriorRing();
-        //std::cout << pair.first << "ºÅ±êÇ©µÄ¶à±ßÐÎ±ß½ç£º" << std::endl;
-        //std::cout << "¹²ÓÐ" << ring->getNumPoints() << "¸öµã£º" << std::endl;
         for (int i = 0; i < ring->getNumPoints(); ++i) {
             OGRPoint point;
             ring->getPoint(i, &point);
-            //std::cout << point.getX() << "," << point.getY() << std::endl;
         }
     }
 }
 
 void PolygonManager::showAllPolygons() {
     for (int i = 0; i < mSegResult->getLabelCount(); ++i) {
-        //std::cout << "ÕýÔÚ»æÖÆµÚ" << i + 1 << "¸ö¶à±ßÐÎ..." << std::endl;
-
-        // »ñÈ¡µÚi¸ö±êÇ©¶ÔÓ¦µÄOGRPolygon
         if (getPolygonByLabel(i) == nullptr) {
             continue;
         }
         const OGRPolygon* ogrPolygon = getPolygonByLabel(i);
-
-        // ×ª»»ÎªQPolygon
         QPolygon qPolygon = convertOGRPolygonToQPolygon(ogrPolygon);
+        auto polygonItem = std::make_unique<CustomPolygonItem>(qPolygon);
 
-        CustomPolygonItem* polygonItem = new CustomPolygonItem(qPolygon);
+        connect(polygonItem.get(), &CustomPolygonItem::polygonSelected, this, &PolygonManager::handlePolygonSelected);
+        connect(polygonItem.get(), &CustomPolygonItem::polygonDeselected, this, &PolygonManager::handlePolygonDeselected);
 
-        connect(polygonItem, &CustomPolygonItem::polygonSelected, this, &PolygonManager::handlePolygonSelected);
-
-        connect(polygonItem, &CustomPolygonItem::polygonDeselected, this, &PolygonManager::handlePolygonDeselected);
-
-        mPolygonItems[i] = polygonItem;
-
+        mPolygonItems[i] = std::move(polygonItem);
         mPolygonItems[i]->setLabel(i);
-
-        // »æÖÆ¶à±ßÐÎ
-        mGraphicsScene->addItem(mPolygonItems[i]);
+        mGraphicsScene->addItem(mPolygonItems[i].get());
     }
 }
 
@@ -138,40 +112,32 @@ void PolygonManager::mergePolygons(std::vector<CustomPolygonItem*> polygonItems)
         return;
     }
 
-    std::cout << "ÕýÔÚºÏ²¢ËùÑ¡ÔñµÄ¶à±ßÐÎ..." << std::endl;
+    std::cout << "æ­£åœ¨åˆå¹¶æ‰€é€‰æ‹©çš„å¤šè¾¹å½¢..." << std::endl;
 
-    // ºÏ²¢±êÇ©
-    std::vector<int> mergeLabels = getMergeLabels(polygonItems);
-
-    // É¾³ý¾ÉµÄ¶à±ßÐÎ
+    int mergedLabel = getMergedLabel(polygonItems);
     removeOldPolygons(polygonItems);
+    cv::Rect newBoundingBox = mSegResult->getBoundingBoxByLabel(mergedLabel);
+    generateNewPolygons(newBoundingBox, std::vector<int>{mergedLabel});
 
-    // ¼ÆËãÐÂµÄ¼ì²â·¶Î§
-    cv::Rect newBoundingBox = computeNewBoundingBox(polygonItems[0]);
-
-    // Éú³ÉÐÂµÄ¶à±ßÐÎ
-    generateNewPolygons(newBoundingBox, mergeLabels);
-
-    std::cout << "Éú³ÉºÏ²¢ºóµÄ¶à±ßÐÎÍê³É" << std::endl;
+    std::cout << "ç”Ÿæˆåˆå¹¶åŽçš„å¤šè¾¹å½¢å®Œæˆ" << std::endl;
 }
 
-std::vector<int> PolygonManager::getMergeLabels(const std::vector<CustomPolygonItem*>& polygonItems) {
+int PolygonManager::getMergedLabel(const std::vector<CustomPolygonItem*>& polygonItems) {
     std::vector<int> mergeLabels;
     for (CustomPolygonItem* item : polygonItems) {
         int label = item->getLabel();
         mergeLabels.push_back(label);
     }
-    mSegResult->mergeLabels(mergeLabels);
-    return mergeLabels;
+    int mergedLabel = mSegResult->mergeLabels(mergeLabels);
+    return mergedLabel;
 }
 
 void PolygonManager::removeOldPolygons(const std::vector<CustomPolygonItem*>& polygonItems) {
     for (CustomPolygonItem* item : polygonItems) {
         int label = item->getLabel();
         if (mOGRPolygons.find(label) != mOGRPolygons.end()) {
-            delete mOGRPolygons[label];
             mOGRPolygons.erase(label);
-            mGraphicsScene->removeItem(mPolygonItems[label]);
+            mGraphicsScene->removeItem(mPolygonItems[label].get());
             mPolygonItems.erase(label);
         }
     }
@@ -221,7 +187,7 @@ void PolygonManager::generateNewPolygons(const cv::Rect& boundingBox, const std:
         }
 
         if (mOGRPolygons.find(label) == mOGRPolygons.end()) {
-            mOGRPolygons[label] = new OGRPolygon();
+            mOGRPolygons[label] = std::make_unique<OGRPolygon>();
         }
 
         OGRLinearRing* ring = new OGRLinearRing();
@@ -232,15 +198,16 @@ void PolygonManager::generateNewPolygons(const cv::Rect& boundingBox, const std:
 
         mOGRPolygons[label]->addRingDirectly(ring);
 
-        QPolygon newPolygon = convertOGRPolygonToQPolygon(mOGRPolygons[label]);
-        CustomPolygonItem* polygonItem = new CustomPolygonItem(newPolygon);
-        QObject::connect(polygonItem, &CustomPolygonItem::polygonSelected, this, &PolygonManager::handlePolygonSelected);
-        QObject::connect(polygonItem, &CustomPolygonItem::polygonDeselected, this, &PolygonManager::handlePolygonDeselected);
-        mPolygonItems[label] = polygonItem;
-        mPolygonItems[label]->setLabel(label);
-        mGraphicsScene->addItem(polygonItem);
+        QPolygon newPolygon = convertOGRPolygonToQPolygon(mOGRPolygons[label].get());
+        auto polygonItem = std::make_unique<CustomPolygonItem>(newPolygon);
+        connect(polygonItem.get(), &CustomPolygonItem::polygonSelected, this, &PolygonManager::handlePolygonSelected);
+        connect(polygonItem.get(), &CustomPolygonItem::polygonDeselected, this, &PolygonManager::handlePolygonDeselected);
 
-        break;  // È·±£Ö»Éú³ÉÒ»´Î¶à±ßÐÎ
+        mPolygonItems[label] = std::move(polygonItem);
+        mPolygonItems[label]->setLabel(label);
+        mGraphicsScene->addItem(mPolygonItems[label].get());
+
+        break;  // ç¡®ä¿åªç”Ÿæˆä¸€æ¬¡å¤šè¾¹å½¢
     }
 }
 
@@ -262,7 +229,7 @@ void PolygonManager::setSelectedBorderColor(QColor color) {
     }
 }
 
-QPolygon PolygonManager::convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygon) {
+QPolygon PolygonManager::convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygon) const {
     QPolygon polygon;
     const OGRLinearRing* exteriorRing = ogrPolygon->getExteriorRing();
     int pointCount = exteriorRing->getNumPoints();
@@ -275,10 +242,9 @@ QPolygon PolygonManager::convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygo
 }
 
 void PolygonManager::handlePolygonSelected(CustomPolygonItem* polygonItem) {
-    std::cout << "¶à±ßÐÎ" << polygonItem->getLabel() << "±»Ñ¡ÖÐ" << std::endl;
-    //qDebug() << polygonItem->polygon();
+    std::cout << "å¤šè¾¹å½¢" << polygonItem->getLabel() << "è¢«é€‰ä¸­" << std::endl;
     mSelectedPolygonItems.push_back(polygonItem);
-    std::cout << "Ä¿Ç°×Ü¹²ÓÐ" << mSelectedPolygonItems.size() << "¸ö¶à±ßÐÎ±»Ñ¡ÖÐ:";
+    std::cout << "ç›®å‰æ€»å…±æœ‰" << mSelectedPolygonItems.size() << "ä¸ªå¤šè¾¹å½¢è¢«é€‰ä¸­:";
     for (auto& selectedItem : mSelectedPolygonItems) {
         std::cout << selectedItem->getLabel() << ", ";
     }
@@ -286,9 +252,9 @@ void PolygonManager::handlePolygonSelected(CustomPolygonItem* polygonItem) {
 }
 
 void PolygonManager::handlePolygonDeselected(CustomPolygonItem* polygonItem) {
-    std::cout << "¶à±ßÐÎ " << polygonItem->getLabel() << "±»È¡ÏûÑ¡ÖÐ" << std::endl;
+    std::cout << "å¤šè¾¹å½¢ " << polygonItem->getLabel() << "è¢«å–æ¶ˆé€‰ä¸­" << std::endl;
     mSelectedPolygonItems.erase(std::remove(mSelectedPolygonItems.begin(), mSelectedPolygonItems.end(), polygonItem));
-    std::cout << "Ä¿Ç°×Ü¹²ÓÐ" << mSelectedPolygonItems.size() << "¸ö¶à±ßÐÎ±»Ñ¡ÖÐ:";
+    std::cout << "ç›®å‰æ€»å…±æœ‰" << mSelectedPolygonItems.size() << "ä¸ªå¤šè¾¹å½¢è¢«é€‰ä¸­:";
     for (auto& selectedItem : mSelectedPolygonItems) {
         std::cout << selectedItem->getLabel() << ", ";
     }

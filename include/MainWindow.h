@@ -46,6 +46,7 @@ private slots:
 private:
     void initUI();
     void showImage();
+    void clearImage();
     void executeSNIC();
     void getDataSet();
     void showPolygons();
@@ -59,6 +60,7 @@ private:
 
     std::unique_ptr<GDALDataset, GDALDatasetDeleter> mDataset;
     std::unique_ptr<SegmentationResult> mSegResult;
+    QGraphicsPixmapItem* mImageItem;
     std::unique_ptr<PolygonManager> mPolygonManager;
 
     std::list<std::unique_ptr<CustomThread>> mProcessingThreadList;

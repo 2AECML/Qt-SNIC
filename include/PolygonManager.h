@@ -31,7 +31,7 @@ public:
 
     void mergePolygons(std::vector<CustomPolygonItem*> polygonItems);
 
-    std::vector<int> getMergeLabels(const std::vector<CustomPolygonItem*>& polygonItems);
+    int getMergedLabel(const std::vector<CustomPolygonItem*>& polygonItems);
 
     void removeOldPolygons(const std::vector<CustomPolygonItem*>& polygonItems);
 
@@ -49,17 +49,18 @@ public:
         return mOGRPolygons.size();
     }
 
-    inline const std::map<int, OGRPolygon*>& getPolygons() {
+    inline const std::map<int, std::unique_ptr<OGRPolygon>>& getPolygons() const {
         return mOGRPolygons;
     }
 
-    inline const OGRPolygon* getPolygonByLabel(int label) {
-        return mOGRPolygons[label];
+    inline const OGRPolygon* getPolygonByLabel(int label) const {
+        auto it = mOGRPolygons.find(label);
+        return (it != mOGRPolygons.end()) ? it->second.get() : nullptr;
     }
 
 private:
 
-    QPolygon convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygon);
+    QPolygon convertOGRPolygonToQPolygon(const OGRPolygon* ogrPolygon) const;
 
     void handlePolygonSelected(CustomPolygonItem* polygonItem);
 
@@ -70,9 +71,9 @@ private:
 private:
     CustomGraphicsScene* mGraphicsScene;
     SegmentationResult* mSegResult;
-    
-    std::map<int, OGRPolygon*> mOGRPolygons;
-    std::map<int, CustomPolygonItem*> mPolygonItems;
+
+    std::map<int, std::unique_ptr<OGRPolygon>> mOGRPolygons;
+    std::map<int, std::unique_ptr<CustomPolygonItem>> mPolygonItems;
     std::vector<CustomPolygonItem*> mSelectedPolygonItems;
 };
 
